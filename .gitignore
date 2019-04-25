@@ -4,3 +4,5 @@ report/*.blg
 report/*.dvi
 report/*.log
 report/*.syntex.gz
+report/*.fdb_latexmk
+report/*.fls

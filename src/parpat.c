@@ -48,4 +48,3 @@ tq newtq() {
   tq tq = newQueue();
   return(tq);
 }
-
