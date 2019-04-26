@@ -109,6 +109,36 @@ For convenience, the destroyer function for the queue also takes the destroyer f
 
 The blocking queue was tested for correctness by writing a simple test program that would create a queue, and spawn a large number of threads. Half of which would enqueue and the other dequeue elements and print what they did and when they were finished. If the queue was not thread safe, then threads would either block permanently due to the loss of elements in the list during insertion and removal, multiple threads would dequeue the same element, and elements could be left over despite an even number of inserts and removes. Whilst this is clearly not an exhaustive test, it was enough to provide confidence in the implementation. Use \code{make queuetest} then \code{./queuetest} to compile and run the tests.
 
+\section{Steps}
+
+The project was started with the intention of implementing nested parallel patterns. This required defining components that would be able to integrate both with pipelines and parallel farms. This component was referred to as a \code{Step}. Figure \ref{fig:step} shows the structure of a step, with an input queue, a function to apply, and an output queue to place data once processed.
+
+The step API is listed in \code{step.h}, and provides three methods: Step creation, destruction, and shutdown signalling. Step creation requires providing an input and output queue (that can't be the same queue), as well as the function to apply which could take any number of parameters and return anything. 
+
+Originally, each step would spawn a worker thread on creation which would run a function that would continuously poll the input queue for data to process. Upon receiving \code{NULL}, the worker thread terminates. The shutdown signal method adds NULL to the given steps input queue in order to trigger this shutdown. If multiple steps share an input queue then a NULL would have to be supplied for each consuming worker thread to ensure they all terminated correctly.
+
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=0.45\linewidth]{images/step}
+	\caption{Single step without input queue $Q_i$, output queue $Q_{i+1}$ and a function $f_i$.}
+	\label{fig:step}
+\end{figure}
+
+The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
+
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=0.8\linewidth]{images/farm}
+	\caption{Farm abstraction}
+	\label{fig:farm}
+\end{figure}
+
+
+\section{Parallel Farm}
+
+The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved .
+
+
 \section{Pipeline} 
 
 The pipeline pattern is where a series of functions are applied to some input. Often the analogy of a conveyor belt is used, as inputs can flow continuously and functions can be applied simultaneously to inputs that are at differenet stages of the pipeline.
@@ -122,27 +152,7 @@ Figure \ref{fig:pipe} shows how an atomic pipeline was implemented for this subm
 	\label{fig:pipe}
 \end{figure}
 
-The pipeline was defined to consist of a series of steps which would be managed by a thread. The thread for step $i$ would poll queue $Q_i$ for an input $x$ to process, compute $f(x)$, then add the output to queue $Q_{i+1}$. $Q_0$ and $Q_{n+1}$ are the input and output queues made accessible by the pipeline interface, where $n$ is the number of functions in the pipeline. The number of queues needed can be calculated using the number of functions $n+1$. 
-
-Steps were implemented as structs containing a pointer to the input and output queues, and the function  to perform. The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
-
-\begin{figure}[!ht]
-	\centering 
-	\includegraphics[width=0.45\linewidth]{images/step}
-	\caption{Step of pipeline.}
-	\label{fig:step}
-\end{figure}
-
-\section{Parallel Farm}
-
-The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved .
-
-\begin{figure}[!ht]
-	\centering 
-	\includegraphics[width=0.8\linewidth]{images/farm}
-	\caption{Farm abstraction}
-	\label{fig:farm}
-\end{figure}
+The pipeline was defined to consist of a series of steps. The thread for step $i$ would poll queue $Q_i$ for an input $x$ to process, compute $f(x)$, then add the output to queue $Q_{i+1}$. $Q_0$ and $Q_{n+1}$ are the input and output queues made accessible by the pipeline interface, where $n$ is the number of functions in the pipeline. The number of queues needed can be calculated using the number of functions $n+1$. 
 
 \section*{Conclusion}
 
