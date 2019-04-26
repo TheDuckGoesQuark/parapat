@@ -4,11 +4,11 @@
 int MAX_BUFFER_PER_STEP = 4;
 
 typedef struct Pipeline {
-    Queue* queues[]; // Pointer to list of queues
+    Queue** queues; // Pointer to list of queues
     Queue* input; // input queue to pipeline
     Queue* output; // output queue to pipeline
     int numSteps; // Number of steps in pipeline
-    Step* steps[]; // pointer to first step in step array
+    Step** steps; // pointer to first step in step array
 } Pipeline;
 
 // Calculate the number of queues necessary to support the number of steps
@@ -19,18 +19,17 @@ int calculateNumQueues(int numSteps) {
 // Create pipeline consisting of steps given in array.
 // Steps will occur in order functions are given
 Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
-
     // Allocate and construct queues
     int numQueues = calculateNumQueues(numSteps);
-    Queue* queues = malloc(sizeof(Queue) * numQueues);
+    Queue** queues = malloc(sizeof(Queue*) * numQueues);
     for(int i = 0; i < numQueues; ++i) {
         queues[i] = createQueue(MAX_BUFFER_PER_STEP);
     }
 
     // Allocate and construct steps
-    Step* steps = malloc(sizeof(Step) * numSteps);
+    Step** steps = malloc(sizeof(Step*) * numSteps);
     for(int i = 0; i < numSteps; ++i) {
-        steps[i] = createStep(queues[i], queues[i+1]);
+        steps[i] = createStep(queues[i], queues[i+1], functionSteps[i]);
     }
 
     // Allocate and construct pipeline
@@ -53,7 +52,7 @@ void destroyPipeline(Pipeline* pipeline) {
     // Free queues
     int numQueues = calculateNumQueues(pipeline->numSteps);
     for(int i = 0; i < numQueues; ++i) {
-        destroyQueue(pipeline->queues[i])
+        destroyQueue(pipeline->queues[i]);
     }
     free(pipeline->queues);
 
