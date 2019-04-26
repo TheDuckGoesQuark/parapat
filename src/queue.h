@@ -1,33 +1,16 @@
-#define MAX_TASKS 100
-#define MAX_THREADS 16
+#include <stdlib.h>
 
-typedef int Value;
+typedef struct Queue Queue;
 
-typedef struct Node *Node;
+// Create blocking queue. Size determines at which point it blocks inserts.
+Queue* createQueue(size_t max_size);
 
-struct Node {
-  Value value;
-  Node next;
-};
+// Adds element to queue. Blocks if queue has reached maximum size.
+void enqueue(Queue* q, void* element);
 
+// Removes an element from the queue. Blocks if the queue is empty.
+void* dequeue(Queue* q);
 
-typedef struct NodePtr *NodePtr;
-
-struct NodePtr {
-  int count;
-  Node p;
-};
-
-typedef struct Queue *Queue;
-
-struct Queue {
-  Node first;
-};
-
-typedef Queue tq;
-
-tq newtq();
-int gettask(tq tq);
-void puttask(tq tq,int v);
-void createfarm(void (*Worker)(),int n);
-void createpipe(void (*Worker1)(),void (*Worker2)());
+// Frees the memory allocated to the queue,
+// and all the elements remaining in it using the supplied destruction
+void destroyQueue(Queue* q, void (*destroyElement)(void* element));
