@@ -1,4 +1,5 @@
 #include <stdatomic.h>
+#include <stdbool.h>
 #include "../queue/queue.h"
 #include "../step/step.h"
 
@@ -31,7 +32,7 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
     // Allocate and construct steps
     Step** steps = malloc(sizeof(Step*) * numSteps);
     for(int i = 0; i < numSteps; ++i) {
-        steps[i] = createStep(queues[i], queues[i+1], functionSteps[i]);
+        steps[i] = createStep(queues[i], queues[i+1], functionSteps[i], 1);
     }
 
     // Allocate and construct pipeline
@@ -44,11 +45,17 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
     return pipeline;
 }
 
-// Frees all data allocated to the pipeline
-void destroyPipeline(Pipeline* pipeline) {
-    // Free steps in array
+// Frees all data allocated to the pipeline if pipeline has finished processing all inputs
+// Returns 0 on success, and -1 otherwise
+int destroyPipeline(Pipeline* pipeline) {
+    if (pipeline->dataInTransit != 0) return -1;
+
+    // Enqueue nulls to trigger step worker threads to termiante
     for(int i = 0; i < pipeline->numSteps; ++i) {
-        joinWorkerThread(pipeline->steps[i]);
+        signalShutdownToWorkerThreads(pipeline->steps[i]);
+    }
+    // Join worker threads and free steps in array
+    for(int i = 0; i < pipeline->numSteps; ++i) {
         destroyStep(pipeline->steps[i]);
     }
     free(pipeline->steps);
@@ -62,6 +69,7 @@ void destroyPipeline(Pipeline* pipeline) {
 
     // Free pipeline
     free(pipeline);
+    return 0;
 }
 
 // Add all the pointers to the input data to the pipeline in a FIFO order
@@ -71,6 +79,7 @@ void submitAllToPipeline(Pipeline* pipeline, void* data[], int numberOfInputs) {
     for(int i = 0; i < numberOfInputs; ++i) {
         enqueue(pipeline->input, data[i]);
     }
+    pipeline->dataInTransit += numberOfInputs;
 }
 
 // Add the pointer to the input data to the pipeline
@@ -82,7 +91,7 @@ void submitToPipeline(Pipeline* pipeline, void* data) {
 
 // Blocks until data is returned, or if no data is currently in pipeline
 // return null immediately
-void* drainPipeline(Pipeline* pipeline, int numberOfOutputsToDrain) {
+void* removeFromPipeline(Pipeline* pipeline, int numberOfOutputsToDrain) {
     if (pipeline->dataInTransit == 0) return NULL;
     else {
         void* result = dequeue(pipeline->input);

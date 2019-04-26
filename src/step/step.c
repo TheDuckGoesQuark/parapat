@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include "step.h"
@@ -6,7 +7,8 @@ typedef struct Step {
     Queue* inputQueue;
     Queue* outputQueue;
     void* (*functionToApply)();
-    pthread_t workerThread[];
+    int numWorkerThreads;
+    pthread_t* workerThreads;
 } Step;
 
 // Removes an element from the input queue,
@@ -38,7 +40,7 @@ void* runStep(Step* step) {
 // Queue to take inputs from
 // Function to apply to inputs
 // Queue to place outputs
-Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)()) {
+Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads) {
     // Allocate memory for step
     Step* step = malloc(sizeof(Step));
 
@@ -48,13 +50,29 @@ Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)
     step->inputQueue = inputQueue;
     step->outputQueue = outputQueue;
     step->functionToApply = functionToApply;
-    pthread_create(&(step->workerThread), NULL, (void*) runStep, step);
+    step->numWorkerThreads = numWorkerThreads;
+
+    pthread_t* workerThreads = malloc(sizeof(pthread_t) * numWorkerThreads);
+    for(int i = 0; i < step->numWorkerThreads; ++i) {
+        pthread_create(&(workerThreads[i]), NULL, (void*) runStep, step);
+    }
+    step->workerThreads = workerThreads;
 
     return step;
 }
 
-// Free memory used for step. Does not destroy queues or their elements
+// Block until worker thread for step has terminated
+void joinWorkerThreads(Step* step) {
+    void* result;
+    // Wait for worker to receive null and terminate
+    for(int i = 0; i < step->numWorkerThreads; ++i) {
+        pthread_join(step->workerThreads[i], &result);
+    }
+}
+
+// wait for worker threads to termiante, then free memory used for step
 void destroyStep(Step* step) {
+    joinWorkerThreads(step);
     // Check step is valid
     if (!step) return;
 
@@ -62,11 +80,14 @@ void destroyStep(Step* step) {
     free(step);
 }
 
-// Block until worker thread for step has terminated
-void joinWorkerThread(Step* step) {
-    void* result;
-    // Insert null in order to terminate thread
-    enqueue(step->inputQueue, NULL);
-    // Wait for worker to receive null and terminate
-    pthread_join(step->workerThread, &result);
+
+// Inserts as many NULL messages into the queue to ensure that each worker thread
+// will receive one.
+// NOTE: If other threads are accessing the input/output queue
+// then ensure they also have NULLS to consume before calling join.
+void signalShutdownToWorkerThreads(Step* step) {
+    // Insert enough nulls to terminate all worker threads
+    for(int i = 0; i < step->numWorkerThreads; ++i) {
+        enqueue(step->inputQueue, NULL);
+    }
 }

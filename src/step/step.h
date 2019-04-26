@@ -6,10 +6,16 @@ typedef struct Step Step;
 // Queue to take inputs from
 // Function to apply to inputs
 // Queue to place outputs
-Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)());
+// Number of works to perform step
+Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads);
 
-// Free memory used for step. Does not destroy queues or their elements
+// Join worker threads and free contents
+// NOTE: ensure signalShutdownToWorkerThreads() is called first otherwise
+// threads will never join.
 void destroyStep(Step* step);
 
-// Block until the threads handling this step have terminated
-void joinWorkerThread(Step* step);
+// Inserts as many NULL messages into the queue to ensure that each worker thread
+// will receive one.
+// NOTE: If other threads are accessing the input/output queue
+// then ensure they also have NULLS to consume before calling join.
+void signalShutdownToWorkerThreads(Step* step);
