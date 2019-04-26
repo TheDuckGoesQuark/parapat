@@ -115,7 +115,7 @@ void* dequeue(Queue* queue) {
 }
 
 // Free memory allocated to queue and all the elements in it
-void queue_destroy(Queue* queue, void (*destroyElement)(void* element)) {
+void destroyQueue(Queue* queue, void (*destroyElement)(void* element)) {
     // Check queue is valid
     if (!queue) return;
 

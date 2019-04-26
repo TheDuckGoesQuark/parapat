@@ -1,13 +1,10 @@
 LDFLAGS = -lGL -lm -lpthread -O3
 
-farm.a: class.o
-    ar -rv libclassdll.a class.o
-
-pipeline.a: parpat.c queue.h
+test: main.c queue.h queue.c 
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-all: farm
+all: test
 
 .PHONY: clean
 clean:
-	rm -f $(obj) *.o farm
+	rm -f $(obj) *.o test

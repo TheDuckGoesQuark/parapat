@@ -94,11 +94,20 @@ To implement and evaluate a library for parallelising C programs, using PThreads
 
 The implementation of parallel task handlers would have to accumulate their outputs and buffer their inputs in a thread safe way, and so a blocking queue was necessary. \lstinline{queue.h} provides an interface for a queue to be used by other components, and \lstinline{queue.c} provides an implementation.
 
-The queue is a linked list structure, where each node in the list has a reference to the element next in line. The queue structure tracks the last in line for adding new nodes, and the first in line for removing nodes. 
+The queue is a linked list structure, where each node in the list has a reference to the element next in line. The queue structure tracks the last in line for adding new nodes, and the first in line for removing nodes. A conditional variable is used to notify threads waiting to add or remove elements that the size of the queue has changed, and a normal mutex is used to ensure that only one node is able to perform the addition or removal at a time. Figure \ref{fig:queue} shows a queue struct with a series of node structs.
+
+For convenience, the destroyer function for the queue also takes the destroyer function for its elements as a parameter so that it can be assumed that destroying a queue will free all memory that it is responsible for.
+
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=0.8\linewidth]{images/queue}
+	\caption{Queue structure, showing head and tail pointers, and each member of queue referencing the next.}
+	\label{fig:queue}
+\end{figure}
 
 \section{Pipeline} 
 
-The pipeline pattern is where a series of functions are applied to some input. Often the analogy of a conveyor belt is used, as inputs can flow continuously and functions can be applied simultaneously to inputs that are at differenet stages of the pipeline. 
+The pipeline pattern is where a series of functions are applied to some input. Often the analogy of a conveyor belt is used, as inputs can flow continuously and functions can be applied simultaneously to inputs that are at differenet stages of the pipeline.
 
 Figure \ref{fig:pipe} shows how an atomic pipeline was implemented for this submission. An array of functions are submitted on creation of the pipeline, along with the number of worker threads that should run for each stage in the pipeline. The pipeline interface allows for inputs to be added to a queue, where they will wait to be processed, and for outputs to be polled from the outgoing queue. 
 
