@@ -4,24 +4,24 @@
 #include "queue.h"
 
 // Element of queue with pointer to next element in line
-typedef struct Node{
+typedef struct Node {
     struct Node* nextInLine;
     void* data;
 } Node;
 
 // Queue, with head, tail, current size, maximum size, and lock
-struct Queue {
+typedef struct Queue {
     Node* head;
     Node* tail;
     int currentSize;
     int maxSize;
     pthread_cond_t notifier;
     pthread_mutex_t mutex;
-};
+} Queue;
 
 // Allocates memory on the heap for the queue,
 // and returns a pointer to the queue
-struct Queue* createQueue(size_t maxSize) {
+Queue* createQueue(size_t maxSize) {
     // Allocate memory for queue
     Queue* queue = malloc(sizeof(Queue));
 
@@ -43,7 +43,7 @@ struct Queue* createQueue(size_t maxSize) {
 }
 
 // Places data on the queue, or blocks until space is available on the queue
-void enqueue(struct Queue* queue, void* data) {
+void enqueue(Queue* queue, void* data) {
     // Attempt to gain lock to queue
     pthread_mutex_lock(&(queue->mutex));
 
@@ -114,19 +114,19 @@ void* dequeue(Queue* queue) {
     return data;
 }
 
-// Free memory allocated to queue and all the elements in it
-void destroyQueue(Queue* queue, void (*destroyElement)(void* element)) {
+// Free memory allocated to queue
+void destroyQueue(Queue* queue) {
     // Check queue is valid
     if (!queue) return;
 
     // Get head of queue
     Node* next = queue->head;
     Node* curr;
+
     // Iterate over each element of queue and destroy its contents
     while (next) {
         curr = next;
         next = curr->nextInLine;
-        (*destroyElement)(curr->data);
         free(curr);
     }
 

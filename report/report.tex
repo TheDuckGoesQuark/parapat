@@ -122,7 +122,9 @@ Figure \ref{fig:pipe} shows how an atomic pipeline was implemented for this subm
 	\label{fig:pipe}
 \end{figure}
 
-The pipeline was defined to consist of a series of steps which would be managed by a thread. The thread for step $i$ would poll queue $Q_i$ for an input $x$ to process, compute $f(x)$, then add the output to queue $Q_{i+1}$. $Q_0$ and $Q_{n+1}$ are the input and output queues made accessible by the pipeline interface, where $n$ is the number of functions in the pipeline.
+The pipeline was defined to consist of a series of steps which would be managed by a thread. The thread for step $i$ would poll queue $Q_i$ for an input $x$ to process, compute $f(x)$, then add the output to queue $Q_{i+1}$. $Q_0$ and $Q_{n+1}$ are the input and output queues made accessible by the pipeline interface, where $n$ is the number of functions in the pipeline. 
+
+Steps were implemented as structs containing a pointer to the input and output queues, and the function perform. The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
 
 \begin{figure}[!ht]
 	\centering 
@@ -131,7 +133,7 @@ The pipeline was defined to consist of a series of steps which would be managed 
 	\label{fig:step}
 \end{figure}
 
-Steps were implemented as structs containing a pointer to the input and output queues, and the function perform. The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
+The number of queues necessary was calculated using the number of functions $n+1$. 
 
 \section{Parallel Farm}
 

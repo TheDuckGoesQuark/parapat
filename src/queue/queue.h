@@ -12,5 +12,4 @@ void enqueue(Queue* q, void* element);
 void* dequeue(Queue* q);
 
 // Frees the memory allocated to the queue,
-// and all the elements remaining in it using the supplied destruction
-void destroyQueue(Queue* q, void (*destroyElement)(void* element));
+void destroyQueue(Queue* q);
