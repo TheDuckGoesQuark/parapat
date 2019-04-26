@@ -1,10 +1,10 @@
 LDFLAGS = -lGL -lm -lpthread -O3
 
-test: main.c queue.h queue.c 
+queuetest: queuetest.c queue.h queue.c
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-all: test
+all: queuetest
 
 .PHONY: clean
 clean:
-	rm -f $(obj) *.o test
+	rm -f $(obj) *.o queuetest
