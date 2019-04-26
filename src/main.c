@@ -6,8 +6,6 @@
 
 Queue* queue;
 
-int NUM_TRIES_PER_THREAD = 1000;
-
 typedef struct Foo {
     int value;
 } Foo;
@@ -71,7 +69,5 @@ void testWithNThreads(int nThreads) {
 }
 
 int main() {
-    for (int nThreads = 1; nThreads < 100; nThreads++) {
-        testWithNThreads(nThreads);
-    }
+    testWithNThreads(10);
 }
