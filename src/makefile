@@ -1,6 +1,6 @@
 LDFLAGS = -lGL -lm -lpthread -O3
 
-queuetest: queuetest.c queue.h queue.c
+queuetest: queue/queuetest.c queue/queue.h queue/queue.c
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 all: queuetest
