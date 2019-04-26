@@ -90,6 +90,12 @@
 
 To implement and evaluate a library for parallelising C programs, using PThreads, locks, and queues. 
 
+\section{Blocking Queue}
+
+The implementation of parallel task handlers would have to accumulate their outputs and buffer their inputs in a thread safe way, and so a blocking queue was necessary. \lstinline{queue.h} provides an interface for a queue to be used by other components, and \lstinline{queue.c} provides an implementation.
+
+The queue is a linked list structure, where each node in the list has a reference to the element next in line. The queue structure tracks the last in line for adding new nodes, and the first in line for removing nodes. 
+
 \section{Pipeline} 
 
 The pipeline pattern is where a series of functions are applied to some input. Often the analogy of a conveyor belt is used, as inputs can flow continuously and functions can be applied simultaneously to inputs that are at differenet stages of the pipeline. 

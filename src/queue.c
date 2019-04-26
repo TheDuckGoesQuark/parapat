@@ -15,8 +15,8 @@ struct Queue {
     Node* tail;
     int currentSize;
     int maxSize;
-    pthread_cond_t cv;
-    pthread_mutex_t m;
+    pthread_cond_t notifier;
+    pthread_mutex_t mutex;
 };
 
 // Allocates memory on the heap for the queue,
@@ -35,9 +35,9 @@ struct Queue* createQueue(size_t maxSize) {
     queue->maxSize = maxSize;
 
     // Initialize queue lock
-    pthread_mutex_init(&(queue->m), NULL);
+    pthread_mutex_init(&(queue->mutex), NULL);
     // Initialize waiting lock
-    pthread_cond_init(&(queue->cv), NULL);
+    pthread_cond_init(&(queue->notifier), NULL);
 
     return queue;
 }
@@ -45,12 +45,12 @@ struct Queue* createQueue(size_t maxSize) {
 // Places data on the queue, or blocks until space is available on the queue
 void enqueue(struct Queue* queue, void* data) {
     // Attempt to gain lock to queue
-    pthread_mutex_lock(&(queue->m));
+    pthread_mutex_lock(&(queue->mutex));
 
     if(queue->maxSize > 0) {
         // Block until able to insert into queue
         while (queue->currentSize >= queue->maxSize) {
-            pthread_cond_wait(&(queue->cv), &(queue->m));
+            pthread_cond_wait(&(queue->notifier), &(queue->mutex));
         }
     }
 
@@ -72,20 +72,20 @@ void enqueue(struct Queue* queue, void* data) {
     queue->currentSize += 1;
 
     // Inform waiting threads of updated size
-    pthread_cond_broadcast(&(queue->cv));
+    pthread_cond_broadcast(&(queue->notifier));
 
     // Release lock
-    pthread_mutex_unlock(&(queue->m));
+    pthread_mutex_unlock(&(queue->mutex));
 }
 
 // Removes element from queue. Blocks if the queue is empty
 void* dequeue(Queue* queue) {
     // Gain queue lock
-    pthread_mutex_lock(&(queue->m));
+    pthread_mutex_lock(&(queue->mutex));
 
     // Wait until queue contains something
     while (queue->currentSize <= 0) {
-        pthread_cond_wait(&(queue->cv), &(queue->m));
+        pthread_cond_wait(&(queue->notifier), &(queue->mutex));
     }
 
     // Get first element in queue
@@ -107,9 +107,9 @@ void* dequeue(Queue* queue) {
 
     queue->currentSize-= 1;
     // Inform waiting threads of size change
-    pthread_cond_broadcast(&(queue->cv));
+    pthread_cond_broadcast(&(queue->notifier));
     // Release lock on queue
-    pthread_mutex_unlock(&(queue->m));
+    pthread_mutex_unlock(&(queue->mutex));
 
     return data;
 }
@@ -131,8 +131,8 @@ void queue_destroy(Queue* queue, void (*destroyElement)(void* element)) {
     }
 
     // Free locks
-    pthread_cond_destroy(&(queue->cv));
-    pthread_mutex_destroy(&(queue->m));
+    pthread_cond_destroy(&(queue->notifier));
+    pthread_mutex_destroy(&(queue->mutex));
 
     // Free queue
     free(queue);
