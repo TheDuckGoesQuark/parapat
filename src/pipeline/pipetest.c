@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include "queue.h"
+#include "../queue/queue.h"
 
 Queue* queue;
 

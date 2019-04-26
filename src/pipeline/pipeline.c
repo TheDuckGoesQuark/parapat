@@ -1,3 +1,4 @@
+#include <stdatomic.h>
 #include "../queue/queue.h"
 #include "../step/step.h"
 
@@ -8,6 +9,7 @@ typedef struct Pipeline {
     Queue* input; // input queue to pipeline
     Queue* output; // output queue to pipeline
     int numSteps; // Number of steps in pipeline
+    int dataInTransit; // Number of inputs currently being computed
     Step** steps; // pointer to first step in step array
 } Pipeline;
 
@@ -37,6 +39,7 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
     pipeline->queues = queues;
     pipeline->numSteps = numSteps;
     pipeline->steps = steps;
+    pipeline->dataInTransit = 0;
 
     return pipeline;
 }
@@ -45,6 +48,7 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
 void destroyPipeline(Pipeline* pipeline) {
     // Free steps in array
     for(int i = 0; i < pipeline->numSteps; ++i) {
+        joinWorkerThread(pipeline->steps[i]);
         destroyStep(pipeline->steps[i]);
     }
     free(pipeline->steps);
@@ -73,9 +77,16 @@ void submitAllToPipeline(Pipeline* pipeline, void* data[], int numberOfInputs) {
 // Blocks until data item is added to the queue
 void submitToPipeline(Pipeline* pipeline, void* data) {
     enqueue(pipeline->input, data);
+    pipeline->dataInTransit++;
 }
 
-// Blocks until data is returned
+// Blocks until data is returned, or if no data is currently in pipeline
+// return null immediately
 void* drainPipeline(Pipeline* pipeline, int numberOfOutputsToDrain) {
-    return dequeue(pipeline->input);
+    if (pipeline->dataInTransit == 0) return NULL;
+    else {
+        void* result = dequeue(pipeline->input);
+        pipeline->dataInTransit--;
+        return result;
+    }
 }

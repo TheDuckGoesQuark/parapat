@@ -1,10 +1,38 @@
+#include <pthread.h>
+#include <stdbool.h>
 #include "step.h"
 
 typedef struct Step {
     Queue* inputQueue;
     Queue* outputQueue;
     void* (*functionToApply)();
+    pthread_t workerThread[];
 } Step;
+
+// Removes an element from the input queue,
+// applies the function at this step,
+// adds it to the output queue.
+void* runStep(Step* step) {
+    void* output;
+
+    do {
+        // Removes an element from the input queue,
+        void* input = dequeue(step->inputQueue);
+
+        if(input) {
+            // applies the function at this step,
+            output = step->functionToApply(input);
+            // adds it to the output queue.
+            enqueue(step->outputQueue, output);
+        } else {
+            // trigger thread termination
+            output = NULL;
+        }
+
+    } while (output);
+
+    return NULL;
+}
 
 // Allocate memory for step, requiring a
 // Queue to take inputs from
@@ -20,6 +48,7 @@ Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)
     step->inputQueue = inputQueue;
     step->outputQueue = outputQueue;
     step->functionToApply = functionToApply;
+    pthread_create(&(step->workerThread), NULL, (void*) runStep, step);
 
     return step;
 }
@@ -33,14 +62,11 @@ void destroyStep(Step* step) {
     free(step);
 }
 
-// Removes an element from the input queue,
-// applies the function at this step,
-// adds it to the output queue.
-void runStep(Step* step) {
-    // Removes an element from the input queue,
-    void* input = dequeue(step->inputQueue);
-    // applies the function at this step,
-    void* output = step->functionToApply(input);
-    // adds it to the output queue.
-    enqueue(step->outputQueue, output);
+// Block until worker thread for step has terminated
+void joinWorkerThread(Step* step) {
+    void* result;
+    // Insert null in order to terminate thread
+    enqueue(step->inputQueue, NULL);
+    // Wait for worker to receive null and terminate
+    pthread_join(step->workerThread, &result);
 }
