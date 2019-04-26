@@ -24,8 +24,10 @@ void* runStep(Step* step) {
         if(input) {
             // applies the function at this step,
             output = step->functionToApply(input);
-            // adds it to the output queue.
-            enqueue(step->outputQueue, output);
+            if (output != NULL) {
+                // adds it to the output queue.
+                enqueue(step->outputQueue, output);
+            } // discard
         } else {
             // trigger thread termination
             output = NULL;

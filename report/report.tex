@@ -124,14 +124,17 @@ Originally, each step would spawn a worker thread on creation which would run a 
 	\label{fig:step}
 \end{figure}
 
-The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
+Once satisifed with the single worker per step implementation, the ability to have multiple worker threads per step was then implemented. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as parallel farms. 
 
 \begin{figure}[!ht]
 	\centering 
 	\includegraphics[width=0.8\linewidth]{images/farm}
-	\caption{Farm abstraction}
-	\label{fig:farm}
+	\caption{Step with multiple workers.}
+	\label{fig:multiplestep}
 \end{figure}
+
+The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
+
 
 
 \section{Parallel Farm}
