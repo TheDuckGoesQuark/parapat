@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include "../queue/queue.h"
 
 typedef struct Step Step;
@@ -7,7 +8,8 @@ typedef struct Step Step;
 // Function to apply to inputs
 // Queue to place outputs
 // Number of works to perform step
-Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads);
+// Whether or not a null output from the function should be forwarded to the next step
+Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads, bool filterNulls);
 
 // Join worker threads and free contents
 // NOTE: ensure signalShutdownToWorkerThreads() is called first otherwise

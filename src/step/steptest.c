@@ -2,12 +2,18 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../task/task.h"
 #include "../queue/queue.h"
 #include "step.h"
 
 int* timesTwo(int* input) {
     *input = (*input) * 2;
     return input;
+}
+
+int* evenFilter(int* number) {
+    if (*number % 2 == 0) return NULL;
+    else return number;
 }
 
 int compareInt(const void* a, const void* b) {
@@ -29,15 +35,16 @@ void testStep(int numWorkers, int numInputs, int retreiveAfter, char message[]) 
     // Create test instance
     Queue* inputQueue = createQueue(numInputs);
     Queue* outputQueue = createQueue(numInputs);
-    Step* step = createStep(inputQueue, outputQueue, (void*) timesTwo, numWorkers);
+    Step* step = createStep(inputQueue, outputQueue, (void*) timesTwo, numWorkers, false);
 
     // Create test cases
-    int* inputs[numInputs];
+    Task* inputs[numInputs];
     int expectedOutputs[numInputs];
     for(int i = 0; i < numInputs; ++i) {
         // Alloc and add
-        inputs[i] = malloc(sizeof(int));
-        *inputs[i] = i;
+        int* inputValue = malloc(sizeof(int));
+        Task* task = createTask(inputValue, i, 1);
+        inputs[i] = task;
 
         // Copy for expected
         int expected = i;
@@ -54,11 +61,13 @@ void testStep(int numWorkers, int numInputs, int retreiveAfter, char message[]) 
     if (retreiveAfter == 1) {
         signalShutdownToWorkerThreads(step);
         for(int i = 0; i < numInputs; ++i) {
-            outputs[i] = *((int*) (dequeue(outputQueue)));
+            Task* task = (Task*) (dequeue(outputQueue));
+            outputs[i] = *((int*) getTaskData(task));
         }
     } else {
         for(int i = 0; i < numInputs; ++i) {
-            outputs[i] = *((int*) (dequeue(outputQueue)));
+            Task* task = (Task*) (dequeue(outputQueue));
+            outputs[i] = *((int*) getTaskData(task));
         }
         signalShutdownToWorkerThreads(step);
     }
@@ -72,7 +81,7 @@ void testStep(int numWorkers, int numInputs, int retreiveAfter, char message[]) 
         int output = outputs[i];
         int expected = expectedOutputs[i];
         if (output != expected) {
-            printf("FAIL: INPUT = %d EXPECTED = %d ACTUAL = %d\n", *inputs[i], expected, output);
+            printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
         } else {
             pass--;
         }
@@ -90,7 +99,89 @@ void testStep(int numWorkers, int numInputs, int retreiveAfter, char message[]) 
     destroyQueue(inputQueue);
     destroyQueue(outputQueue);
     for(int i = 0; i < numInputs; ++i) {
-        free(inputs[i]);
+        destroyTask(inputs[i]);
+    }
+}
+
+void testFilterStep(int numInputs, int numWorkers, int retreiveAfter, char message[]) {
+    printf("Start filter test %s\n", message);
+
+    // Create test instance
+    Queue* inputQueue = createQueue(numInputs);
+    Queue* outputQueue = createQueue(numInputs);
+    Step* step = createStep(inputQueue, outputQueue, (void*) evenFilter, numWorkers, true);
+
+    // Count odd numbers in range
+    int oddCount = 0;
+    for(int i = 0; i < numInputs; i++) {
+        if (i % 2 == 0) oddCount++;
+    }
+
+    // Create test cases
+    Task* inputs[numInputs];
+    int expectedOutputs[oddCount];
+    for(int i = 0, j = 0; i < numInputs; ++i) {
+        // Alloc and add
+        int* inputValue = malloc(sizeof(int));
+        Task* task = createTask(inputValue, i, 1);
+        inputs[i] = task;
+
+        // Copy for expected
+        if (i % 2 != 0)  {
+            expectedOutputs[j] = i;
+            j++;
+        }
+    }
+
+    // Submit test cases
+    for(int i = 0; i < numInputs; ++i) {
+        enqueue(inputQueue, inputs[i]);
+    }
+
+    // Retrieve outputs before or after signalling to stop
+    int outputs[oddCount];
+    if (retreiveAfter == 1) {
+        signalShutdownToWorkerThreads(step);
+        for(int i = 0; i < oddCount; ++i) {
+            Task* task = (Task*) (dequeue(outputQueue));
+            outputs[i] = *((int*) getTaskData(task));
+        }
+    } else {
+        for(int i = 0; i < oddCount; ++i) {
+            Task* task = (Task*) (dequeue(outputQueue));
+            outputs[i] = *((int*) getTaskData(task));
+        }
+        signalShutdownToWorkerThreads(step);
+    }
+
+    // Sort outputs for comparison (as they may arrive out of order)
+    qsort(outputs, numInputs, sizeof(int), compareInt);
+
+    // Validate results
+    int pass = false;
+    for(int i = 0; i < oddCount; ++i) {
+        int output = outputs[i];
+        int expected = expectedOutputs[i];
+        if (output != expected) {
+            printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
+        } else {
+            pass--;
+        }
+    }
+
+    // Print results
+    if (pass == 0) {
+        printf("TEST %s PASSED\n", message);
+    } else {
+        printf("TEST %s FAILED\n", message);
+    }
+
+    // Cleanup
+    destroyStep(step);
+    destroyQueue(inputQueue);
+    destroyQueue(outputQueue);
+    for(int i = 0; i < numInputs; ++i) {
+        destroyTask(inputs[i]);
     }
 }
 
@@ -103,6 +194,17 @@ int main() {
             sprintf(trueTest, "[numworkers:%d | numinputs:%d | retriveAfter:true ]", i, j);
             testStep(i, j, 0, falseTest);
             testStep(i, j, 1, trueTest);
+        }
+    }
+
+    for(int i = 1; i < 20; ++i) {
+        for(int j = 0; j < 20; ++j) {
+            char* falseTest = (char*) malloc(80 * sizeof(char));
+            sprintf(falseTest, "[numworkers:%d | numinputs:%d | retriveAfter:false | filter:true]", i, j);
+            char* trueTest = (char*) malloc(80 * sizeof(char));
+            sprintf(trueTest, "[numworkers:%d | numinputs:%d | retriveAfter:true | filter:true]", i, j);
+            testFilterStep(i, j, 0, falseTest);
+            testFilterStep(i, j, 1, trueTest);
         }
     }
 }

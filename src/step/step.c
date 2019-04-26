@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <pthread.h>
-#include <stdbool.h>
+
+#include "../task/task.h"
 #include "step.h"
 
 typedef struct Step {
@@ -9,31 +10,32 @@ typedef struct Step {
     void* (*functionToApply)();
     int numWorkerThreads;
     pthread_t* workerThreads;
+    bool filterNulls;
 } Step;
 
 // Removes an element from the input queue,
 // applies the function at this step,
 // adds it to the output queue.
 void* runStep(Step* step) {
-    void* output;
-
+    Task* task;
     do {
         // Removes an element from the input queue,
-        void* input = dequeue(step->inputQueue);
+        task = dequeue(step->inputQueue);
 
-        if(input) {
+        // Terminate if task NULL
+        if (task) {
             // applies the function at this step,
-            output = step->functionToApply(input);
-            if (output != NULL) {
+            void* output= step->functionToApply(getTaskData(task));
+
+            // Only forward nulls if specified to do so
+            if (output != NULL || (step->filterNulls != true)) {
                 // adds it to the output queue.
-                enqueue(step->outputQueue, output);
+                setTaskData(task, output);
+                enqueue(step->outputQueue, task);
             } // discard
-        } else {
-            // trigger thread termination
-            output = NULL;
         }
 
-    } while (output);
+    } while (task);
 
     return NULL;
 }
@@ -42,7 +44,7 @@ void* runStep(Step* step) {
 // Queue to take inputs from
 // Function to apply to inputs
 // Queue to place outputs
-Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads) {
+Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads, bool filterNulls) {
     // Allocate memory for step
     Step* step = malloc(sizeof(Step));
 
@@ -53,6 +55,7 @@ Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)
     step->outputQueue = outputQueue;
     step->functionToApply = functionToApply;
     step->numWorkerThreads = numWorkerThreads;
+    step->filterNulls = filterNulls;
 
     pthread_t* workerThreads = malloc(sizeof(pthread_t) * numWorkerThreads);
     for(int i = 0; i < step->numWorkerThreads; ++i) {
