@@ -32,3 +32,15 @@ void destroyStep(Step* step) {
     // Free step
     free(step);
 }
+
+// Removes an element from the input queue,
+// applies the function at this step,
+// adds it to the output queue.
+void runStep(Step* step) {
+    // Removes an element from the input queue,
+    void* input = dequeue(step->inputQueue);
+    // applies the function at this step,
+    void* output = step->functionToApply(input);
+    // adds it to the output queue.
+    enqueue(step->outputQueue, output);
+}

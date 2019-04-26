@@ -131,6 +131,8 @@ The pipeline was defined to consist of a series of steps which would be managed 
 	\label{fig:step}
 \end{figure}
 
+Steps were implemented as structs containing a pointer to the input and output queues, and the function perform. The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
+
 \section{Parallel Farm}
 
 The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved .
