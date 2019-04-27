@@ -25,13 +25,15 @@ void* runStep(Step* step) {
         // Terminate if task NULL
         if (task) {
             // applies the function at this step,
-            void* output= step->functionToApply(getTaskData(task));
+            void* input = getTaskData(task);
+            void* output= step->functionToApply(input);
 
             // Only forward nulls if specified to do so
             if (output != NULL || (step->filterNulls != true)) {
                 // adds it to the output queue.
                 setTaskData(task, output);
                 enqueue(step->outputQueue, task);
+
             } // discard
         }
 
