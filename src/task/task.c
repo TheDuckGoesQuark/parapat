@@ -71,7 +71,9 @@ int getBatchSize(Batch* batch) {
 
 // Increments the number of tasks that are completed for the batch this task belonged to
 void recordCompletedTask(Task* task) {
-    task->batch->nCompleted++;
+    if (task->batch) {
+        task->batch->nCompleted++;
+    }
 }
 
 // Creates a single task (for testing)

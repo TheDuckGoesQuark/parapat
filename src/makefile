@@ -14,4 +14,4 @@ all: queuetest steptest pipetest
 
 .PHONY: clean
 clean:
-	rm -f $(obj) *.o queuetest steptest pipetes
+	rm -f $(obj) *.o queuetest steptest pipetest
