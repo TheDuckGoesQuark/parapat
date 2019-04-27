@@ -27,3 +27,12 @@ int getBatchSize(Batch* batch);
 
 // Increments the number of tasks that are completed for the batch this task belonged to
 void recordCompletedTask(Task* task);
+
+
+// FOR STEP TEST ****
+
+// Creates a single task (for testing)
+Task* createTask(void* data);
+
+// Destroy task (for testing)
+void destroyTask(Task* task);

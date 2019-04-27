@@ -55,7 +55,7 @@ Bar* mapFooToBar(Foo* foo) {
 // Retrieve outputs before or after signalling for step to terminate
 int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char message[]) {
 
-    int numSteps = 3
+    int numSteps = 3;
     void* (*functionSteps[numSteps])();
     functionSteps[0] = (void*) filterEvenFoos;
     functionSteps[1] = (void*) timesFooByTwo,
@@ -65,74 +65,91 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
     // Create test instance
     Pipeline* pipeline = createPipeline(functionSteps, numSteps, numWorkers, filterSteps);
 
-    // Create test cases
-    Task* inputs[numInputs];
-    int inputValues[numInputs];
-    int expectedOutputs[numInputs];
-    for(int i = 0; i < numInputs; ++i) {
-        // Alloc and add
-        inputValues[i] = i;
-        Task* task = createTask(&inputValues[i], i, 1);
-        inputs[i] = task;
+    // Create test case buffers
+    Foo* inputs[numBatches][numInputsInBatch];
+    Bar* expectedOutputs[numBatches][numInputsInBatch];
 
-        // Copy for expected
-        int expected = i;
-        expectedOutputs[i] = *timesTwo(&expected);
+    // Create test cases
+    for(int i = 0; i < numBatches; ++i) {
+        for (int j = 0; j < numInputsInBatch; j++) {
+            int inputValue = ((i + 1) * j);
+            inputs[i][j] = createFoo(inputValue);
+
+            // even inputs are filtered at first step
+            if (inputValue % 2 == 0) {
+                expectedOutputs[i][j] = NULL;
+            } else {
+                // Odd inputs are multiplied by two and mapped to a Bar
+                expectedOutputs[i][j] = createBar(inputValue * 2);
+            }
+        }
     }
 
     // Submit test cases
-    for(int i = 0; i < numInputs; ++i) {
-        enqueue(inputQueue, inputs[i]);
+    for(int i = 0; i < numBatches; ++i) {
+        addBatch(pipeline, inputs[i], numInputsInBatch);
     }
 
-    // Retrieve outputs before or after signalling to stop
-    int outputs[numInputs];
-    for(int i = 0; i < numInputs; ++i) {
+    // Retrieve outputs
+    Bar* outputs[numBatches][numInputsInBatch];
+    for(int i = 0; i < numBatches; ++i) {
+        outputs[i] = (Bar**) getNextBatchOutput(pipeline);
     }
 
     // Validate results
-    int pass = numInputs;
-    for(int i = 0; i < numInputs; ++i) {
-        int output = outputs[i];
-        int expected = expectedOutputs[i];
-        if (output != expected) {
-            printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
-        } else {
-            pass--;
+    int failed = 0;
+    for(int i = 0; i < numBatches; ++i) {
+        for (int j = 0; j < numInputsInBatch; j++) {
+            int output = outputs[i][j]->value;
+            int expected = expectedOutputs[i][j]->value;
+            if (output != expected) {
+                printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
+            } else {
+                failed++;
+            }
         }
     }
 
     // Print results
-    if (pass == 0) {
+    if (failed == 0) {
         printf("TEST %s PASSED\n", message);
     } else {
-        printf("TEST %s FAILED: %d/%d failed\n", message, numInputs, pass);
+        printf("TEST %s FAILED: %d/%d failed\n", message, failed, numInputsInBatch*numBatches);
     }
 
     // Cleanup
     destroyPipeline(pipeline);
+    for(int i = 0; i < numBatches; ++i) {
+        for (int j = 0; j < numInputsInBatch; j++) {
+            destroyFoo(inputs[i][j]);
+
+            if (expectedOutputs[i][j])
+                destroyBar(expectedOutputs[i][j]);
+        }
+    }
 
     // Return 1 on success
-    return pass == 0 ? 1 : 0;
+    return failed == 0 ? 1 : 0;
 }
 
 int main() {
     int totalCount = 0;
     int passCount = 0;
-    char* falseTest = (char*) malloc(100 * sizeof(char));
-    char* trueTest = (char*) malloc(100 * sizeof(char));
-    for(int numWorkers = 1; numWorkers < 20; ++numWorkers) {
-        for(int numInputs = 1; numInputs < 20; ++numInputs) {
-            sprintf(falseTest, "[numworkers:%d | numinputs:%d | retriveAfter:false]", numWorkers, numInputs);
-            sprintf(trueTest, "[numworkers:%d | numinputs:%d | retriveAfter:true ]", numWorkers, numInputs);
+    char* test = (char*) malloc(100 * sizeof(char));
 
-            passCount += testStep(numWorkers, numInputs, 0, falseTest);
-            passCount += testStep(numWorkers, numInputs, 1, trueTest);
-            totalCount += 2;
+    for(int numWorkers = 1; numWorkers < 20; ++numWorkers) {
+        int numWorkersAtStep[3] = {numWorkers, numWorkers, numWorkers};
+
+        for(int numBatches = 1; numBatches < 20; ++numBatches) {
+            for(int numInputsInBatch = 1; numInputsInBatch < 20; ++numInputsInBatch) {
+                sprintf(test, "[numworkers:%d | numbatches:%d | numinputs:%d]", numWorkers, numBatches, numInputsInBatch);
+                passCount += testStep(numWorkersAtStep, numInputsInBatch, numBatches, test);
+                totalCount += 1;
+            }
         }
     }
+
     printf("*** NORMAL TESTS: %d / %d PASSED ***\n", passCount, totalCount);
-    free(falseTest);
-    free(trueTest);
+    free(test);
     return 0;
 }

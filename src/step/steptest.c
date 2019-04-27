@@ -45,7 +45,7 @@ int testStep(int numWorkers, int numInputs, int retreiveAfter, char message[]) {
     for(int i = 0; i < numInputs; ++i) {
         // Alloc and add
         inputValues[i] = i;
-        Task* task = createTask(&inputValues[i], i, 1);
+        Task* task = createTask(&inputValues[i]);
         inputs[i] = task;
 
         // Copy for expected
@@ -127,7 +127,7 @@ int testFilterStep(int numWorkers, int numInputs, int retreiveAfter, char messag
     for(int i = 0, j = 0; i < numInputs; ++i) {
         // Alloc and add
         inputValues[i] = i;
-        Task* task = createTask(&inputValues[i], i, 1);
+        Task* task = createTask(&inputValues[i]);
         inputs[i] = task;
 
         // Copy odd for expected

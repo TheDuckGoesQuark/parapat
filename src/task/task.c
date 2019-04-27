@@ -73,3 +73,16 @@ int getBatchSize(Batch* batch) {
 void recordCompletedTask(Task* task) {
     task->batch->nCompleted++;
 }
+
+// Creates a single task (for testing)
+Task* createTask(void* data) {
+    Task* task = malloc(sizeof(Task));
+    task->data = data;
+    return task;
+}
+
+// Destroy task (for testing)
+void destroyTask(Task* task) {
+    if (!task) return;
+    else free(task);
+}
