@@ -1,9 +1,12 @@
+#include <stdbool.h>
 
 typedef struct Pipeline Pipeline;
 
 // Create pipeline consisting of steps given in array.
 // Steps will occur in order functions are given
-Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps);
+// workerThreadPerStep assigns workerThreadAtStep[i] worker threads to functionSteps[i]
+// filterSteps[i] determines if a NULL return value from functionSteps[i] means the value should be discarded
+Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps, int workerThreadAtStep[], bool filterSteps[]);
 
 // Frees the pipeline.
 // Ensure pipeline has been drained (i.e. n inputs = n outputs) to avoid

@@ -1,5 +1,5 @@
 #include <stdatomic.h>
-#include <stdbool.h>
+#include <stdio.h>
 #include "../queue/queue.h"
 #include "../step/step.h"
 
@@ -10,7 +10,7 @@ typedef struct Pipeline {
     Queue* input; // input queue to pipeline
     Queue* output; // output queue to pipeline
     int numSteps; // Number of steps in pipeline
-    int dataInTransit; // Number of inputs currently being computed
+    int taskCount; // Number of tasks currently in pipeline
     Step** steps; // pointer to first step in step array
 } Pipeline;
 
@@ -21,7 +21,9 @@ int calculateNumQueues(int numSteps) {
 
 // Create pipeline consisting of steps given in array.
 // Steps will occur in order functions are given
-Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
+// workerThreadPerStep assigns workerThreadAtStep[i] worker threads to functionSteps[i]
+// filterSteps[i] determines if a NULL return value from functionSteps[i] means the value should be discarded
+Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps, int workerThreadAtStep[], bool filterSteps[]) {
     // Allocate and construct queues
     int numQueues = calculateNumQueues(numSteps);
     Queue** queues = malloc(sizeof(Queue*) * numQueues);
@@ -32,7 +34,7 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
     // Allocate and construct steps
     Step** steps = malloc(sizeof(Step*) * numSteps);
     for(int i = 0; i < numSteps; ++i) {
-        steps[i] = createStep(queues[i], queues[i+1], functionSteps[i], 1);
+        steps[i] = createStep(queues[i], queues[i+1], functionSteps[i], workerThreadAtStep[i], filterSteps[i]);
     }
 
     // Allocate and construct pipeline
@@ -40,7 +42,7 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
     pipeline->queues = queues;
     pipeline->numSteps = numSteps;
     pipeline->steps = steps;
-    pipeline->dataInTransit = 0;
+    pipeline->taskCount= 0;
 
     return pipeline;
 }
@@ -48,7 +50,10 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps) {
 // Frees all data allocated to the pipeline if pipeline has finished processing all inputs
 // Returns 0 on success, and -1 otherwise
 int destroyPipeline(Pipeline* pipeline) {
-    if (pipeline->dataInTransit != 0) return -1;
+    if (pipeline->taskCount!= 0) {
+        printf("Can't destroy pipeline while still processing data.\n");
+        return -1;
+    }
 
     // Enqueue nulls to trigger step worker threads to termiante
     for(int i = 0; i < pipeline->numSteps; ++i) {
@@ -79,23 +84,23 @@ void submitAllToPipeline(Pipeline* pipeline, void* data[], int numberOfInputs) {
     for(int i = 0; i < numberOfInputs; ++i) {
         enqueue(pipeline->input, data[i]);
     }
-    pipeline->dataInTransit += numberOfInputs;
+    pipeline->taskCount+= numberOfInputs;
 }
 
 // Add the pointer to the input data to the pipeline
 // Blocks until data item is added to the queue
 void submitToPipeline(Pipeline* pipeline, void* data) {
     enqueue(pipeline->input, data);
-    pipeline->dataInTransit++;
+    pipeline->taskCount++;
 }
 
 // Blocks until data is returned, or if no data is currently in pipeline
 // return null immediately
 void* removeFromPipeline(Pipeline* pipeline, int numberOfOutputsToDrain) {
-    if (pipeline->dataInTransit == 0) return NULL;
+    if (pipeline->taskCount== 0) return NULL;
     else {
         void* result = dequeue(pipeline->input);
-        pipeline->dataInTransit--;
+        pipeline->taskCount--;
         return result;
     }
 }

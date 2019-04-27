@@ -109,13 +109,20 @@ For convenience, the destroyer function for the queue also takes the destroyer f
 
 The blocking queue was tested for correctness by writing a simple test program that would create a queue, and spawn a large number of threads. Half of which would enqueue and the other dequeue elements and print what they did and when they were finished. If the queue was not thread safe, then threads would either block permanently due to the loss of elements in the list during insertion and removal, multiple threads would dequeue the same element, and elements could be left over despite an even number of inserts and removes. Whilst this is clearly not an exhaustive test, it was enough to provide confidence in the implementation. Use \code{make queuetest} then \code{./queuetest} to compile and run the tests.
 
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=\linewidth]{images/queuegrind}
+	\caption{Valgrind output when running queue test.}
+	\label{fig:queuegrind}
+\end{figure}
+
 \section{Steps}
 
-The project was started with the intention of implementing nested parallel patterns. This required defining components that would be able to integrate both with pipelines and parallel farms. This component was referred to as a \code{Step}. Figure \ref{fig:step} shows the structure of a step, with an input queue, a function to apply, and an output queue to place data once processed.
+The project was started with the intention of implementing nested parallel patterns. This required defining components that would be able to integrate both with pipelines and parallel farms. This component is referred to as a \code{Step}. Figure \ref{fig:step} shows visualises a step, with an input queue, a function to apply, and an output queue to place data once processed.
 
 The step API is listed in \code{step.h}, and provides three methods: Step creation, destruction, and shutdown signalling. Step creation requires providing an input and output queue (that can't be the same queue), as well as the function to apply which could take any number of parameters and return anything. 
 
-Originally, each step would spawn a worker thread on creation which would run a function that would continuously poll the input queue for data to process. Upon receiving \code{NULL}, the worker thread terminates. The shutdown signal method adds NULL to the given steps input queue in order to trigger this shutdown. If multiple steps share an input queue then a NULL would have to be supplied for each consuming worker thread to ensure they all terminated correctly.
+Originally, each step would spawn a single worker thread on creation which would run a function that would continuously poll the input queue for data to process. Upon receiving \code{NULL}, the worker thread terminates. The shutdown signal method adds NULL to the given steps input queue in order to trigger this shutdown. If multiple steps share an input queue then a NULL would have to be supplied for each consuming worker thread to ensure they all terminated correctly.
 
 \begin{figure}[!ht]
 	\centering 
@@ -124,7 +131,21 @@ Originally, each step would spawn a worker thread on creation which would run a 
 	\label{fig:step}
 \end{figure}
 
-Once satisifed with the single worker per step implementation, the ability to have multiple worker threads per step was then implemented. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as parallel farms. 
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=0.45\linewidth]{images/task}
+	\caption{Structure of a task.}
+	\label{fig:task}
+\end{figure}
+
+Inspired by the Java 8 Streams API (and since it is a useful feature), I also wanted to include the ability for a step to filter data. An example of filters in pipelines is a graphics engine removing features that are out of view from the pipeline to avoid unecessary processing. 
+
+Since NULL would terminate the worker thread for a step, I needed to differentiate between a filter function returning NULL (i.e. data was filtered) and the termination signal NULL. This was done by wrapping each instance of input data to the queues in a Task structure (Figure \ref{fig:task}). A NULL task would be used as the termination signal. If a step was specified to be a filter, and its function outputted NULL, then the task would not be forwarded. This allowed NULL data to be passed through the pipeline also, and so developers using the library would not have to worry about their return data terminating the pipeline.
+
+% TODO could or would?
+The task wrapper was also extended to provide ordering and batch number values which could be used for recovering the input ordering once processed by multiple worker threads. 
+
+Once satisifed with the single worker per step implementation, the ability to have multiple worker threads per step was then implemented. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as simple parallel farms. However, since each thread would share the same input queue, increasing the number of worker threads would increase the level of contention when trying to dequeue and enqueue tasks. The dedicated farm implementation was designed to avoid this issue.
 
 \begin{figure}[!ht]
 	\centering 
@@ -133,13 +154,25 @@ Once satisifed with the single worker per step implementation, the ability to ha
 	\label{fig:multiplestep}
 \end{figure}
 
-The step implementation was tested by adding an integer to the input queue, calling \code{runStep}, and then checking the output was as expected. Use \code{make steptest} then \code{./steptest} to compile and run the test.
+The step implementation and filter functionality was tested by iteratively building steps with a variable number of worker threads and a variable number of inputs and checking that the correct outputs were received. The normal step test would multiple each input by two, and the filter test would remove even numbers from the input. Use \code{make steptest} then \code{./steptest} to compile and run the test. The output from an example test run is shown in figure \ref{fig:steptest}. The tests were also run with valgrind to check that no memory leaks were occurring (figure \ref{fig:stepgrind}).
 
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=\linewidth]{images/steptest}
+	\caption{Output of filter step tests using combinations of 1 to 19 worker threads and 0 to 19 inputs, where output retrieval is performed before and after signalling the worker threads to terminate.}
+	\label{fig:steptest}
+\end{figure}
 
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=\linewidth]{images/stepgrind}
+	\caption{Valgrind output when running step test.}
+	\label{fig:stepgrind}
+\end{figure}
 
 \section{Parallel Farm}
 
-The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved .
+The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved in creating threads.
 
 
 \section{Pipeline} 

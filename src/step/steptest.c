@@ -40,12 +40,12 @@ int testStep(int numWorkers, int numInputs, int retreiveAfter, char message[]) {
 
     // Create test cases
     Task* inputs[numInputs];
+    int inputValues[numInputs];
     int expectedOutputs[numInputs];
     for(int i = 0; i < numInputs; ++i) {
         // Alloc and add
-        int* inputValue = malloc(sizeof(int));
-        *inputValue = i;
-        Task* task = createTask(inputValue, i, 1);
+        inputValues[i] = i;
+        Task* task = createTask(&inputValues[i], i, 1);
         inputs[i] = task;
 
         // Copy for expected
@@ -122,12 +122,12 @@ int testFilterStep(int numWorkers, int numInputs, int retreiveAfter, char messag
 
     // Create test cases
     Task* inputs[numInputs];
+    int inputValues[numInputs];
     int expectedOutputs[oddCount];
     for(int i = 0, j = 0; i < numInputs; ++i) {
         // Alloc and add
-        int* inputValue = malloc(sizeof(int));
-        *inputValue = i;
-        Task* task = createTask(inputValue, i, 1);
+        inputValues[i] = i;
+        Task* task = createTask(&inputValues[i], i, 1);
         inputs[i] = task;
 
         // Copy odd for expected
@@ -193,11 +193,11 @@ int testFilterStep(int numWorkers, int numInputs, int retreiveAfter, char messag
 int main() {
     int totalCount = 0;
     int passCount = 0;
+    char* falseTest = (char*) malloc(100 * sizeof(char));
+    char* trueTest = (char*) malloc(100 * sizeof(char));
     for(int numWorkers = 1; numWorkers < 20; ++numWorkers) {
         for(int numInputs = 1; numInputs < 20; ++numInputs) {
-            char* falseTest = (char*) malloc(52 * sizeof(char));
             sprintf(falseTest, "[numworkers:%d | numinputs:%d | retriveAfter:false]", numWorkers, numInputs);
-            char* trueTest = (char*) malloc(52 * sizeof(char));
             sprintf(trueTest, "[numworkers:%d | numinputs:%d | retriveAfter:true ]", numWorkers, numInputs);
 
             passCount += testStep(numWorkers, numInputs, 0, falseTest);
@@ -212,16 +212,15 @@ int main() {
 
     for(int numWorkers = 1; numWorkers < 20; ++numWorkers) {
         for(int numInputs = 0; numInputs < 20; ++numInputs) {
-            char* falseTest = (char*) malloc(65 * sizeof(char));
             sprintf(falseTest, "[numworkers:%d | numinputs:%d | retriveAfter:false | filter:true]", numWorkers, numInputs);
-            char* trueTest = (char*) malloc(65 * sizeof(char));
             sprintf(trueTest, "[numworkers:%d | numinputs:%d | retriveAfter:true | filter:true]", numWorkers, numInputs);
-
             passCount += testFilterStep(numWorkers, numInputs, 0, falseTest);
             passCount += testFilterStep(numWorkers, numInputs, 1, trueTest);
             totalCount += 2;
         }
     }
     printf("*** FILTER TESTS: %d / %d PASSED ***\n", passCount, totalCount);
+    free(falseTest);
+    free(trueTest);
     return 0;
 }

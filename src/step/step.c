@@ -84,6 +84,7 @@ void destroyStep(Step* step) {
     if (!step) return;
 
     // Free step
+    free(step->workerThreads);
     free(step);
 }
 

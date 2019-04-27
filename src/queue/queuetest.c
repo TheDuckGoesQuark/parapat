@@ -43,15 +43,15 @@ void testWithNThreads(int nThreads) {
     int i = 0;
 
     queue = createQueue(10);
+    int* threadIds = malloc(sizeof(int) * nThreads);
     while (i < nThreads) {
-        int* arg = malloc(sizeof(*arg));
-        *arg = i;
+        threadIds[i] = i;
 
         int err;
         if (i % 2 == 0) {
-            err = pthread_create(&(tid[i]), NULL, addFoo, arg);
+            err = pthread_create(&(tid[i]), NULL, addFoo, &threadIds[i]);
         } else {
-            err = pthread_create(&(tid[i]), NULL, removeFoo, arg);
+            err = pthread_create(&(tid[i]), NULL, removeFoo, &threadIds[i]);
         }
 
         if (err != 0) {
@@ -63,6 +63,8 @@ void testWithNThreads(int nThreads) {
     for (int j = 0; j < nThreads; j++) {
         pthread_join(tid[j], NULL);
     }
+
+    free(threadIds);
 
     printf("\nnThreads: %d", nThreads);
 
