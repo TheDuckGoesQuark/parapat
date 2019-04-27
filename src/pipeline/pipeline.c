@@ -14,6 +14,7 @@ typedef struct Pipeline {
 
     Batch** batches; // pointer to batch pointer array
     int numBatches; // number of batches
+    int currentBatch; // index of next batch to be removed
 } Pipeline;
 
 // Calculate the number of queues necessary to support the number of steps
@@ -26,7 +27,6 @@ int calculateNumQueues(int numSteps) {
 // workerThreadPerStep assigns workerThreadAtStep[i] worker threads to functionSteps[i]
 // filterSteps[i] determines if a NULL return value from functionSteps[i] means the value should be discarded
 Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps, int workerThreadsAtStep[], bool filterSteps[]) {
-
     // Allocate and construct queues
     int numQueues = calculateNumQueues(numSteps);
     Queue** queues = malloc(sizeof(Queue*) * numQueues);
@@ -49,6 +49,7 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps, int workerThr
     pipeline->steps = steps;
     pipeline->numBatches = 0;
     pipeline->batches = NULL;
+    pipeline->currentBatch = 0;
 
     return pipeline;
 }
@@ -95,16 +96,62 @@ int destroyPipeline(Pipeline* pipeline) {
 // (i.e. data[0] will be added to queue first)
 // Blocks until all data is added to the queue.
 void addBatch(Pipeline* pipeline, void* data[], int numberOfInputs) {
+    pipeline->numBatches++;
+    int newSize = pipeline->numBatches * sizeof(Batch*);
+
+    if (pipeline->batches) {
+        // Extend
+        pipeline->batches = realloc(pipeline->batches, newSize);
+    } else {
+        // Initialize
+        pipeline->batches = malloc(newSize);
+    }
+
+    // Create batch to track tasks and recover order at end
     Batch* batch = createBatch(data, numberOfInputs);
     for(int i = 0; i < numberOfInputs; ++i) {
-        enqueue(pipeline->input, data[i]);
+        enqueue(pipeline->input, getTask(batch, i));
     }
-    pipeline->taskCount+= numberOfInputs;
+    pipeline->batches[pipeline->numBatches] = batch;
+}
+
+// Free batch structures and return output
+void** recordAndReturnResults(Pipeline* pipeline, Batch* currentBatch) {
+    // Create buffer to place output of batches
+    int numberOfOutputs = getBatchSize(currentBatch);
+    void** outputBuffer = malloc(sizeof(void*) * numberOfOutputs);
+
+    // Provide pointer to outputs
+    for (int i = 0; i < numberOfOutputs; i++) {
+        outputBuffer[i] = getTaskData(getTask(currentBatch, i));
+    }
+
+    // Destroy currentBatch
+    destroyBatch(currentBatch);
+    // NULL reference to that batch
+    pipeline->batches[pipeline->currentBatch] = NULL;
+    // Update next batch index
+    pipeline->currentBatch++;
+
+    return outputBuffer;
 }
 
 // Blocks until next batch is returned.
 // Batches will be returned in the order they are submitted
 // If no batches, returns null
 void** getNextBatchOutput(Pipeline* pipeline) {
+    // Check if there are any batches to get
+    if (pipeline->currentBatch == pipeline->numBatches) return NULL;
 
+    Batch* currentBatch = pipeline->batches[pipeline->currentBatch];
+
+    // Until next batch is complete, dequeue completed tasks
+    while (!batchCompleted(currentBatch)) {
+        // Dequeue tasks
+        Task* completed = dequeue(pipeline->output);
+        // Increment their batches completed counter
+        recordCompletedTask(completed);
+    }
+
+    return recordAndReturnResults(pipeline, currentBatch);
 }

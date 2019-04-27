@@ -2,13 +2,16 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../queue/queue.h"
+#include "pipeline.h"
 
-Queue* queue;
-
+// Some structs to test with
 typedef struct Foo {
     int value;
 } Foo;
+
+typedef struct Bar {
+    int value;
+} Bar;
 
 Foo* createFoo(int value) {
     Foo* foo = malloc(sizeof(Foo));
@@ -20,55 +23,116 @@ void destroyFoo(Foo* foo) {
     free(foo);
 }
 
-void* addFoo(void* arg) {
-    int selfId = *((int *) arg);
-    printf("\nThread %d adding foo with value %d", selfId, selfId);
-    Foo* foo = createFoo(selfId);
-    enqueue(queue, foo);
-    printf("\nThread %d finished adding foo with value %d", selfId, selfId);
-    return NULL;
+Bar* createBar(int value) {
+    Bar* bar = malloc(sizeof(Bar));
+    bar->value = value;
+    return bar;
 }
 
-void* removeFoo(void* arg) {
-    int selfId = *((int *) arg);
-    printf("\nThread %d waiting for foo", selfId);
-    Foo* foo = dequeue(queue);
-    printf("\nThread %d removed foo with value %d", selfId, foo->value);
-    destroyFoo(foo);
-    return NULL;
+void destroyBar(Bar* bar) {
+    free(bar);
 }
 
-void testWithNThreads(int nThreads) {
-    pthread_t tid[nThreads];
-    int i = 0;
+Foo* timesFooByTwo(Foo* foo) {
+    foo->value *= 2;
+    return foo;
+}
 
-    queue = createQueue(10);
-    while (i < nThreads) {
-        int* arg = malloc(sizeof(*arg));
-        *arg = i;
+Foo* filterEvenFoos(Foo* foo) {
+    if (foo->value % 2 == 0) return NULL;
+    else return foo;
+}
 
-        int err;
-        if (i % 2 == 0) {
-            err = pthread_create(&(tid[i]), NULL, addFoo, arg);
+Bar* mapFooToBar(Foo* foo) {
+    Bar* bar = malloc(sizeof(Bar));
+    bar->value = foo->value;
+    return bar;
+}
+
+// Run test using step with
+// number of worker threads
+// number of inputs
+// Retrieve outputs before or after signalling for step to terminate
+int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char message[]) {
+
+    int numSteps = 3
+    void* (*functionSteps[numSteps])();
+    functionSteps[0] = (void*) filterEvenFoos;
+    functionSteps[1] = (void*) timesFooByTwo,
+    functionSteps[2] = (void*) mapFooToBar;
+    bool filterSteps[3] = {true, false, false};
+
+    // Create test instance
+    Pipeline* pipeline = createPipeline(functionSteps, numSteps, numWorkers, filterSteps);
+
+    // Create test cases
+    Task* inputs[numInputs];
+    int inputValues[numInputs];
+    int expectedOutputs[numInputs];
+    for(int i = 0; i < numInputs; ++i) {
+        // Alloc and add
+        inputValues[i] = i;
+        Task* task = createTask(&inputValues[i], i, 1);
+        inputs[i] = task;
+
+        // Copy for expected
+        int expected = i;
+        expectedOutputs[i] = *timesTwo(&expected);
+    }
+
+    // Submit test cases
+    for(int i = 0; i < numInputs; ++i) {
+        enqueue(inputQueue, inputs[i]);
+    }
+
+    // Retrieve outputs before or after signalling to stop
+    int outputs[numInputs];
+    for(int i = 0; i < numInputs; ++i) {
+    }
+
+    // Validate results
+    int pass = numInputs;
+    for(int i = 0; i < numInputs; ++i) {
+        int output = outputs[i];
+        int expected = expectedOutputs[i];
+        if (output != expected) {
+            printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
         } else {
-            err = pthread_create(&(tid[i]), NULL, removeFoo, arg);
+            pass--;
         }
-
-        if (err != 0) {
-            printf("\ncouldn't create thread : [%s]", strerror(err));
-        }
-        i++;
     }
 
-    for (int j = 0; j < nThreads; j++) {
-        pthread_join(tid[j], NULL);
+    // Print results
+    if (pass == 0) {
+        printf("TEST %s PASSED\n", message);
+    } else {
+        printf("TEST %s FAILED: %d/%d failed\n", message, numInputs, pass);
     }
 
-    printf("\nnThreads: %d", nThreads);
+    // Cleanup
+    destroyPipeline(pipeline);
 
-    destroyQueue(queue);
+    // Return 1 on success
+    return pass == 0 ? 1 : 0;
 }
 
 int main() {
-    testWithNThreads(10);
+    int totalCount = 0;
+    int passCount = 0;
+    char* falseTest = (char*) malloc(100 * sizeof(char));
+    char* trueTest = (char*) malloc(100 * sizeof(char));
+    for(int numWorkers = 1; numWorkers < 20; ++numWorkers) {
+        for(int numInputs = 1; numInputs < 20; ++numInputs) {
+            sprintf(falseTest, "[numworkers:%d | numinputs:%d | retriveAfter:false]", numWorkers, numInputs);
+            sprintf(trueTest, "[numworkers:%d | numinputs:%d | retriveAfter:true ]", numWorkers, numInputs);
+
+            passCount += testStep(numWorkers, numInputs, 0, falseTest);
+            passCount += testStep(numWorkers, numInputs, 1, trueTest);
+            totalCount += 2;
+        }
+    }
+    printf("*** NORMAL TESTS: %d / %d PASSED ***\n", passCount, totalCount);
+    free(falseTest);
+    free(trueTest);
+    return 0;
 }
