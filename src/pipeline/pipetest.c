@@ -87,20 +87,22 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
 
     // Submit test cases
     for(int i = 0; i < numBatches; ++i) {
-        addBatch(pipeline, inputs[i], numInputsInBatch);
+        addBatch(pipeline, (void*) inputs[i], numInputsInBatch);
     }
 
     // Retrieve outputs
-    Bar* outputs[numBatches][numInputsInBatch];
+    Bar* outputs[numBatches];
     for(int i = 0; i < numBatches; ++i) {
-        outputs[i] = (Bar**) getNextBatchOutput(pipeline);
+        printf("Hello world\n");
+        outputs[i] = *((Bar**) getNextBatchOutput(pipeline));
+        printf("bye world\n");
     }
 
     // Validate results
     int failed = 0;
     for(int i = 0; i < numBatches; ++i) {
         for (int j = 0; j < numInputsInBatch; j++) {
-            int output = outputs[i][j]->value;
+            int output = outputs[i][j].value;
             int expected = expectedOutputs[i][j]->value;
             if (output != expected) {
                 printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
@@ -137,11 +139,11 @@ int main() {
     int passCount = 0;
     char* test = (char*) malloc(100 * sizeof(char));
 
-    for(int numWorkers = 1; numWorkers < 20; ++numWorkers) {
+    for(int numWorkers = 1; numWorkers < 3; ++numWorkers) {
         int numWorkersAtStep[3] = {numWorkers, numWorkers, numWorkers};
 
-        for(int numBatches = 1; numBatches < 20; ++numBatches) {
-            for(int numInputsInBatch = 1; numInputsInBatch < 20; ++numInputsInBatch) {
+        for(int numBatches = 1; numBatches < 2; ++numBatches) {
+            for(int numInputsInBatch = 1; numInputsInBatch < 2; ++numInputsInBatch) {
                 sprintf(test, "[numworkers:%d | numbatches:%d | numinputs:%d]", numWorkers, numBatches, numInputsInBatch);
                 passCount += testStep(numWorkersAtStep, numInputsInBatch, numBatches, test);
                 totalCount += 1;

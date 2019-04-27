@@ -96,9 +96,7 @@ To implement and evaluate a library for parallelising C programs, using PThreads
 
 The implementation of parallel task handlers would have to accumulate their outputs and buffer their inputs in a thread safe way, and so a blocking queue was necessary. \code{queue.h} provides an interface for a queue to be used by other components, and \code{queue.c} provides an implementation.
 
-The queue is a linked list structure, where each node in the list has a reference to the element next in line. The queue structure tracks the last in line for adding new nodes, and the first in line for removing nodes. A conditional variable is used to notify threads waiting to add or remove elements that the size of the queue has changed, and a normal mutex is used to ensure that only one node is able to perform the addition or removal at a time. Figure \ref{fig:queue} shows a queue struct with a series of node structs.
-
-For convenience, the destroyer function for the queue also takes the destroyer function for its elements as a parameter so that it can be assumed that destroying a queue will free all memory that it is responsible for.
+The queue is a linked list structure, where each node in the list has a reference to the element next in line. The queue structure tracks the last in line for adding new nodes, and the first in line for removing nodes. A conditional variable is used to notify threads waiting to add or remove elements that the size of the queue has changed, and a normal mutex is used to ensure that only one node is able to perform the addition or removal at a time (effectively creating a monitor). Figure \ref{fig:queue} shows a queue struct with a series of node structs.
 
 \begin{figure}[!ht]
 	\centering 
@@ -107,7 +105,7 @@ For convenience, the destroyer function for the queue also takes the destroyer f
 	\label{fig:queue}
 \end{figure}
 
-The blocking queue was tested for correctness by writing a simple test program that would create a queue, and spawn a large number of threads. Half of which would enqueue and the other dequeue elements and print what they did and when they were finished. If the queue was not thread safe, then threads would either block permanently due to the loss of elements in the list during insertion and removal, multiple threads would dequeue the same element, and elements could be left over despite an even number of inserts and removes. Whilst this is clearly not an exhaustive test, it was enough to provide confidence in the implementation. Use \code{make queuetest} then \code{./queuetest} to compile and run the tests.
+The blocking queue was tested for correctness by writing a simple test program that would create a queue, and spawn a large number of threads. Half of which would enqueue and the other dequeue elements and print what they did and when they were finished. If the queue was not thread safe, then threads would either block permanently due to the loss of elements in the list during insertion and removal, multiple threads would dequeue the same element, and elements could be left over despite an even number of inserts and removes. Whilst this is clearly not an exhaustive test, it was enough to provide confidence in the implementation. Use \code{make queuetest} then \code{./queuetest} to compile and run the tests. Figure \ref{fig:queuegrind} shows the output of \code{queuetest} when run using \code{valgrind --leak-check=full -v ./queuetest}.
 
 \begin{figure}[!ht]
 	\centering 

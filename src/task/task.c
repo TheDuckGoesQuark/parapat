@@ -80,6 +80,7 @@ void recordCompletedTask(Task* task) {
 Task* createTask(void* data) {
     Task* task = malloc(sizeof(Task));
     task->data = data;
+    task->batch = NULL;
     return task;
 }
 

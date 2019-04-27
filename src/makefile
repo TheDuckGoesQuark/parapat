@@ -7,7 +7,7 @@ queuetest: queue/queuetest.c queue/queue.h queue/queue.c
 steptest: step/steptest.c step/step.h step/step.c queue/queue.h queue/queue.c task/task.h task/task.c
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-pipetest: step/steptest.c step/step.h step/step.c queue/queue.h queue/queue.c task/task.h task/task.c pipeline/pipeline.c pipeline/pipeline.h
+pipetest: pipeline/pipetest.c pipeline/pipeline.c pipeline/pipeline.h step/step.h step/step.c queue/queue.h queue/queue.c task/task.h task/task.c 
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 all: queuetest steptest pipetest

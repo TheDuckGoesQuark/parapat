@@ -112,26 +112,33 @@ void addBatch(Pipeline* pipeline, void* data[], int numberOfInputs) {
     for(int i = 0; i < numberOfInputs; ++i) {
         enqueue(pipeline->input, getTask(batch, i));
     }
-    pipeline->batches[pipeline->numBatches] = batch;
+
+    pipeline->batches[pipeline->numBatches-1] = batch;
 }
 
 // Free batch structures and return output
 void** recordAndReturnResults(Pipeline* pipeline, Batch* currentBatch) {
     // Create buffer to place output of batches
     int numberOfOutputs = getBatchSize(currentBatch);
+    printf("E\n");
     void** outputBuffer = malloc(sizeof(void*) * numberOfOutputs);
+    printf("F\n");
 
     // Provide pointer to outputs
     for (int i = 0; i < numberOfOutputs; i++) {
         outputBuffer[i] = getTaskData(getTask(currentBatch, i));
+        printf("G\n");
     }
 
     // Destroy currentBatch
     destroyBatch(currentBatch);
+    printf("H\n");
     // NULL reference to that batch
     pipeline->batches[pipeline->currentBatch] = NULL;
+    printf("I\n");
     // Update next batch index
     pipeline->currentBatch++;
+    printf("J\n");
 
     return outputBuffer;
 }
@@ -147,11 +154,13 @@ void** getNextBatchOutput(Pipeline* pipeline) {
 
     // Until next batch is complete, dequeue completed tasks
     while (!batchCompleted(currentBatch)) {
+        printf("C\n");
         // Dequeue tasks
         Task* completed = dequeue(pipeline->output);
         // Increment their batches completed counter
         recordCompletedTask(completed);
     }
 
+    printf("D\n");
     return recordAndReturnResults(pipeline, currentBatch);
 }
