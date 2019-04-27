@@ -19,6 +19,9 @@ void destroyBatch(Batch* batch);
 // Returns true if all tasks in this batch are completed
 bool batchCompleted(Batch* batch);
 
+// Block until the given batch has been completed
+void waitForBatchToComplete(Batch* batch);
+
 // Retrieves the task at the given index
 Task* getTask(Batch* batch, int taskIndex);
 

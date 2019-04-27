@@ -93,9 +93,7 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
     // Retrieve outputs
     Bar* outputs[numBatches];
     for(int i = 0; i < numBatches; ++i) {
-        printf("Hello world\n");
         outputs[i] = *((Bar**) getNextBatchOutput(pipeline));
-        printf("bye world\n");
     }
 
     // Validate results
@@ -103,10 +101,13 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
     for(int i = 0; i < numBatches; ++i) {
         for (int j = 0; j < numInputsInBatch; j++) {
             int output = outputs[i][j].value;
+            printf("hell\n");
             int expected = expectedOutputs[i][j]->value;
+            printf("hell\n");
             if (output != expected) {
                 printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
             } else {
+                printf("hell\n");
                 failed++;
             }
         }
