@@ -33,7 +33,6 @@ void* runStep(Step* step) {
                 // adds it to the output queue.
                 setTaskData(task, output);
                 enqueue(step->outputQueue, task);
-
             } // discard
         }
 

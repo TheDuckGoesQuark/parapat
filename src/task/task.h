@@ -1,15 +1,8 @@
+#include <stdbool.h>
+
 typedef struct Task Task;
 
-// Creates a task to hold the given data
-// and with the given order and batch value
-Task* createTask(void* data, int ordering, int batchNumber);
-
-// Creates tasks for each data point,
-// incrementing the order value from the startOrdering value for each point.
-Task* createTasks(void* data[], int nTasks, int startOrdering, int batchNumber);
-
-// Destroys task
-void destroyTask(Task* task);
+typedef struct Batch Batch;
 
 // Retrieves the contents of the task
 void* getTaskData(Task* task);
@@ -17,14 +10,20 @@ void* getTaskData(Task* task);
 // Sets the contents of the task object
 void setTaskData(Task* task, void* data);
 
-// Retrieves the ordering value
-int getOrdering(Task* task);
+// Creates a batch from the given input data
+Batch* createBatch(void* data[], int nTasks);
 
-// Sets the ordering value
-void setOrdering(Task* task, int ordering);
+// Destroys the given batch and all its tasks
+void destroyBatch(Batch* batch);
 
-// Retrieves the batch number
-int getBatchNumber(Task* task);
+// Adds a task to the given batch
+void addTask(Batch* batch, Task task);
 
-// Sets the ordering value
-void setBatchNumber(Task* task, int batchNumber);
+// Returns true if all tasks in this batch are completed
+bool batchCompleted(Batch* batch);
+
+// Gets all the tasks from this batch
+Task* getTasks(Batch* batch);
+
+// Returns the number of tasks in the batch
+int getBatchSize(Batch* batch);

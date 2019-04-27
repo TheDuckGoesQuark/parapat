@@ -17,11 +17,9 @@ int destroyPipeline(Pipeline* pipeline);
 // Add all the pointers to the input data to the pipeline in a FIFO order
 // (i.e. data[0] will be added to queue first)
 // Blocks until all data is added to the queue.
-void submitAllToPipeline(Pipeline* pipeline, void* data[], int numberOfInputs);
+void addBatch(Pipeline* pipeline, void* data[], int numberOfInputs);
 
-// Add the pointer to the input data to the pipeline
-// Blocks until data item is added to the queue
-void submitToPipeline(Pipeline* pipeline, void* data);
-
-// Blocks until data is returned
-void* removeFromPipeline(Pipeline* pipeline);
+// Blocks until next batch is returned.
+// Batches will be returned in the order they are submitted
+// If no batches, returns null
+void** getNextBatchOutput(Pipeline* pipeline);

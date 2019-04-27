@@ -145,7 +145,7 @@ Since NULL would terminate the worker thread for a step, I needed to differentia
 % TODO could or would?
 The task wrapper was also extended to provide ordering and batch number values which could be used for recovering the input ordering once processed by multiple worker threads. 
 
-Once satisifed with the single worker per step implementation, the ability to have multiple worker threads per step was then implemented. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as simple parallel farms. However, since each thread would share the same input queue, increasing the number of worker threads would increase the level of contention when trying to dequeue and enqueue tasks. The dedicated farm implementation was designed to avoid this issue.
+Once satisifed with the single worker per step implementation, the ability to have multiple worker threads per step was then implemented. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as simple parallel farms. It was noted that since each thread would share the same input queue, increasing the number of worker threads would increase the level of contention when trying to dequeue and enqueue tasks due to the blocking queues locking mechansim. 
 
 \begin{figure}[!ht]
 	\centering 
@@ -170,16 +170,11 @@ The step implementation and filter functionality was tested by iteratively build
 	\label{fig:stepgrind}
 \end{figure}
 
-\section{Parallel Farm}
-
-The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved in creating threads.
-
-
 \section{Pipeline} 
 
-The pipeline pattern is where a series of functions are applied to some input. Often the analogy of a conveyor belt is used, as inputs can flow continuously and functions can be applied simultaneously to inputs that are at differenet stages of the pipeline.
+The pipeline pattern is where a series of functions are applied to some input in a given order. Often the analogy of a conveyor belt is used, as inputs can flow continuously and functions can be applied simultaneously to inputs that are at different stages in the pipeline.
 
-Figure \ref{fig:pipe} shows how an atomic pipeline was implemented for this submission. An array of functions are submitted on creation of the pipeline, along with the number of worker threads that should run for each stage in the pipeline. The pipeline interface allows for inputs to be added to a queue, where they will wait to be processed, and for outputs to be polled from the outgoing queue. 
+Figure \ref{fig:pipe} shows how a pipeline was implemented for this submission. An array of functions are submitted on creation of the pipeline, along with the number of worker threads that should run for each stage in the pipeline. The pipeline interface allows for inputs to be added to a queue, where they will wait to be processed, and for outputs to be polled from the outgoing queue. 
 
 \begin{figure}[!ht]
 	\centering 
@@ -190,9 +185,28 @@ Figure \ref{fig:pipe} shows how an atomic pipeline was implemented for this subm
 
 The pipeline was defined to consist of a series of steps. The thread for step $i$ would poll queue $Q_i$ for an input $x$ to process, compute $f(x)$, then add the output to queue $Q_{i+1}$. $Q_0$ and $Q_{n+1}$ are the input and output queues made accessible by the pipeline interface, where $n$ is the number of functions in the pipeline. The number of queues needed can be calculated using the number of functions $n+1$. 
 
+One of the difficult design decisions was setting how to manage the size of the queues that would buffer data between each step in the pipeline. Figure \ref{fig:qsize} shows three situations: equal producers and consumers, more producers thatn consumers, and more consumers than producers. The relative speed of the producers and consumers would also have to be considered (e.g. how quickly the producer produces). The processing time of the pipeline would be dependent on the speed of the slowest step if queues are assumed to always have data to consume at each step (i.e. no waiting).
+
+\cite{buffer} describe and try to tackle the problem of choosing these buffer sizes. They conclude that in a homogeneous pipeline (where each step takes the same time), equal buffer sizes at each step is efficient. They also provide optimised buffer size allocations for pipelines where each step takes incrementally longer, for example. 
+
+I opted for the size of the input queue at each step to be equal to the number of consumer threads at the next step. This would at least ensure that as long as the producer equalled or outpaced the consumer, the the consumer would never have to wait for data to process. This could be wasteful in terms of memory however if the producer is unable to fill the queue due to the consumer being quicker.
+
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=\linewidth]{images/qsize}
+	\caption{Scenarios when creating queues.}
+	\label{fig:qsize}
+\end{figure}
+
+\section{Parallel Farm}
+
+The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved in creating threads. 
+
+As mentioned earlier, \code{Step}s already provided a method of having multiple worker threads processing from the same input queue, and the pipeline API already contained a way of constructing steps and submitting tasks. Therefore the farm API simply wrapped a pipeline instance with a single step and multiple worker threads.
+
 \section*{Conclusion}
 
-%\bibliographystyle{unsrt}
-%\bibliography{mybib}
+\bibliographystyle{unsrt}
+\bibliography{mybib}
 
 \end{document}
