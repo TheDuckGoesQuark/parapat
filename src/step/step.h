@@ -9,7 +9,8 @@ typedef struct Step Step;
 // Queue to place outputs
 // Number of works to perform step
 // Whether or not a null output from the function should be forwarded to the next step
-Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads, bool filterNulls);
+// Whether or not this is the final step
+Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads, bool filterNulls, bool final);
 
 // Join worker threads and free contents
 // NOTE: ensure signalShutdownToWorkerThreads() is called first otherwise

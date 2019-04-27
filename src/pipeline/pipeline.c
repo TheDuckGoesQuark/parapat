@@ -31,13 +31,19 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps, int workerThr
     int numQueues = calculateNumQueues(numSteps);
     Queue** queues = malloc(sizeof(Queue*) * numQueues);
     for(int i = 0; i < numQueues; ++i) {
-        queues[i] = createQueue(workerThreadsAtStep[i]);
+        if (i < numQueues-1) {
+            queues[i] = createQueue(workerThreadsAtStep[i]);
+        } else {
+            // Final queue has unlimited size
+            queues[i] = createQueue(0);
+        }
     }
 
     // Allocate and construct steps
     Step** steps = malloc(sizeof(Step*) * numSteps);
     for(int i = 0; i < numSteps; ++i) {
-        steps[i] = createStep(queues[i], queues[i+1], functionSteps[i], workerThreadsAtStep[i], filterSteps[i]);
+        bool final = (i == numSteps-1) ? true : false;
+        steps[i] = createStep(queues[i], queues[i+1], functionSteps[i], workerThreadsAtStep[i], filterSteps[i], final);
     }
 
     // Allocate and construct pipeline

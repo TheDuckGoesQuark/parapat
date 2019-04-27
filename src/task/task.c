@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <pthread.h>
 #include "task.h"
 
 typedef struct Task {
@@ -10,6 +11,8 @@ typedef struct Batch {
     Task* tasks; // All tasks that are part of the batch, with the first task being the original pointer creating by malloc
     int nTasks; // The number of tasks that are part of this batch
     int nCompleted; // Number of tasks that are completed
+    pthread_cond_t notifier; // signal when batch is complete
+    pthread_mutex_t mutex; // lock for signalling
 } Batch;
 
 // Retrieves the contents of the task
@@ -39,6 +42,12 @@ Batch* createBatch(void* data[], int nTasks) {
 
     // Provide link to tasks
     batch->tasks = tasks;
+
+    // Initialize lock
+    pthread_mutex_init(&(batch->mutex), NULL);
+    // Initialize waiting lock
+    pthread_cond_init(&(batch->notifier), NULL);
+
     return batch;
 }
 
@@ -50,13 +59,26 @@ void destroyBatch(Batch* batch) {
         free(batch->tasks);
     }
 
+    pthread_cond_destroy(&(batch->notifier));
+    pthread_mutex_destroy(&(batch->mutex));
     free(batch);
 }
 
-// Returns true if all tasks in this batch are completed
 bool batchCompleted(Batch* batch) {
-    if (batch->nCompleted == batch->nTasks) return true;
-    else return false;
+    return batch->nCompleted == batch->nTasks;
+}
+
+// Returns true if all tasks in this batch are completed
+void waitForBatchToComplete(Batch* batch) {
+    // Gain batch lock
+    pthread_mutex_lock(&(batch->mutex));
+
+    // Wait until completed
+    while (!batchCompleted(batch)) {
+        pthread_cond_wait(&(batch->notifier), &(batch->mutex));
+    }
+
+    pthread_mutex_unlock(&(batch->mutex));
 }
 
 // Gets the task at the given index
@@ -71,9 +93,20 @@ int getBatchSize(Batch* batch) {
 
 // Increments the number of tasks that are completed for the batch this task belonged to
 void recordCompletedTask(Task* task) {
-    if (task->batch) {
-        task->batch->nCompleted++;
+    if (!task->batch) return;
+
+    Batch* batch = task->batch;
+    // Gain batch lock
+    pthread_mutex_lock(&(batch->mutex));
+
+    batch->nCompleted++;
+    if (batchCompleted(batch)) {
+        // Notify any waiting threads that batch is now completed
+        pthread_cond_broadcast(&(batch->notifier));
     }
+
+    // Return lock
+    pthread_mutex_unlock(&(batch->mutex));
 }
 
 // Creates a single task (for testing)

@@ -11,6 +11,7 @@ typedef struct Step {
     int numWorkerThreads;
     pthread_t* workerThreads;
     bool filterNulls;
+    bool final;
 } Step;
 
 // Removes an element from the input queue,
@@ -32,7 +33,13 @@ void* runStep(Step* step) {
             if (output != NULL || (step->filterNulls != true)) {
                 // adds it to the output queue.
                 setTaskData(task, output);
-                enqueue(step->outputQueue, task);
+                if (step->final) {
+                    // Notify batch listeners that task is completed
+                    recordCompletedTask(task);
+                } else {
+                    // Pass on to next step
+                    enqueue(step->outputQueue, task);
+                }
             } else {
                 recordCompletedTask(task);
             }
@@ -47,7 +54,7 @@ void* runStep(Step* step) {
 // Queue to take inputs from
 // Function to apply to inputs
 // Queue to place outputs
-Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads, bool filterNulls) {
+Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)(), int numWorkerThreads, bool filterNulls, bool final) {
     // Allocate memory for step
     Step* step = malloc(sizeof(Step));
 
@@ -59,6 +66,7 @@ Step* createStep(Queue* inputQueue, Queue* outputQueue, void* (*functionToApply)
     step->functionToApply = functionToApply;
     step->numWorkerThreads = numWorkerThreads;
     step->filterNulls = filterNulls;
+    step->final = final;
 
     pthread_t* workerThreads = malloc(sizeof(pthread_t) * numWorkerThreads);
     for(int i = 0; i < step->numWorkerThreads; ++i) {
@@ -88,7 +96,6 @@ void destroyStep(Step* step) {
     free(step->workerThreads);
     free(step);
 }
-
 
 // Inserts as many NULL messages into the queue to ensure that each worker thread
 // will receive one.

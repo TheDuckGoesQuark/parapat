@@ -36,7 +36,7 @@ int testStep(int numWorkers, int numInputs, int retreiveAfter, char message[]) {
     // Create test instance
     Queue* inputQueue = createQueue(numInputs);
     Queue* outputQueue = createQueue(numInputs);
-    Step* step = createStep(inputQueue, outputQueue, (void*) timesTwo, numWorkers, false);
+    Step* step = createStep(inputQueue, outputQueue, (void*) timesTwo, numWorkers, false, false);
 
     // Create test cases
     Task* inputs[numInputs];
@@ -112,7 +112,7 @@ int testFilterStep(int numWorkers, int numInputs, int retreiveAfter, char messag
     // Create test instance
     Queue* inputQueue = createQueue(numInputs);
     Queue* outputQueue = createQueue(numInputs);
-    Step* step = createStep(inputQueue, outputQueue, (void*) evenFilter, numWorkers, true);
+    Step* step = createStep(inputQueue, outputQueue, (void*) evenFilter, numWorkers, true, false);
 
     // Count odd numbers in range
     int oddCount = 0;
