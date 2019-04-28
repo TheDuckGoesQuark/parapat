@@ -140,7 +140,6 @@ Inspired by the Java 8 Streams API (and since it is a useful feature), I also wa
 
 Since NULL would terminate the worker thread for a step, I needed to differentiate between a filter function returning NULL (i.e. data was filtered) and the termination signal NULL. This was done by wrapping each instance of input data to the queues in a Task structure (Figure \ref{fig:task}). A NULL task would be used as the termination signal. If a step was specified to be a filter, and its function outputted NULL, then the task would not be forwarded. This allowed NULL data to be passed through the pipeline also, and so developers using the library would not have to worry about their return data terminating the pipeline.
 
-% TODO could or would?
 The task wrapper was also extended to provide ordering and batch number values which could be used for recovering the input ordering once processed by multiple worker threads. 
 
 Once satisifed with the single worker per step implementation, the ability to have multiple worker threads per step was then implemented. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as simple parallel farms. It was noted that since each thread would share the same input queue, increasing the number of worker threads would increase the level of contention when trying to dequeue and enqueue tasks due to the blocking queues locking mechansim. 
@@ -194,6 +193,13 @@ I opted for the size of the input queue at each step to be equal to the number o
 	\includegraphics[width=\linewidth]{images/qsize}
 	\caption{Scenarios when creating queues.}
 	\label{fig:qsize}
+\end{figure}
+
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=0.8\linewidth]{images/pipetest}
+	\caption{Output of valgrind when running \code{pipetest}.}
+	\label{fig:pipetest}
 \end{figure}
 
 \section{Parallel Farm}

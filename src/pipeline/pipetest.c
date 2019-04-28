@@ -151,10 +151,10 @@ int main() {
     int passCount = 0;
     char* test = (char*) malloc(100 * sizeof(char));
 
-    for(int numWorkers = 1; numWorkers < 3; ++numWorkers) {
+    for(int numWorkers = 1; numWorkers < 10; ++numWorkers) {
         int numWorkersAtStep[3] = {numWorkers, numWorkers, numWorkers};
         for(int numBatches = 1; numBatches < 3; ++numBatches) {
-            for(int numInputsInBatch = 1; numInputsInBatch < 3; ++numInputsInBatch) {
+            for(int numInputsInBatch = 1; numInputsInBatch < 20; ++numInputsInBatch) {
                 sprintf(test, "[numworkers:%d | numbatches:%d | numinputs:%d]", numWorkers, numBatches, numInputsInBatch);
                 passCount += testStep(numWorkersAtStep, numInputsInBatch, numBatches, test);
                 totalCount += 1;

@@ -1,3 +1,6 @@
+#include "../queue/queue.h"
+#include "../step/step.h"
+#include "../task/task.h"
 #include <stdbool.h>
 
 typedef struct Pipeline Pipeline;

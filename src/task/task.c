@@ -4,8 +4,8 @@
 
 typedef struct Task {
     void* data; // Data to be operated on
-    bool filtered; // If the data for this task was filtered i.e. should not be returned
     Batch* batch; // The batch this task belonged to
+    bool filtered; // If the data for this task was filtered i.e. should not be returned
 } Task;
 
 typedef struct Batch {

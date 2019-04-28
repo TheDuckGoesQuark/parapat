@@ -1,8 +1,5 @@
 #include <stdatomic.h>
 #include <stdio.h>
-#include "../queue/queue.h"
-#include "../step/step.h"
-#include "../task/task.h"
 #include "pipeline.h"
 
 typedef struct Pipeline {

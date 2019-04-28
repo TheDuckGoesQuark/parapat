@@ -135,7 +135,6 @@ unsigned short * process_image(task_t task) {
 int i=0;
 
 int main(int argc, char * argv[]) {
-
   string_p image_name_p;
   unsigned int nr_images, pattern, do_chunking, min_chunk_size;
   int i=0;
