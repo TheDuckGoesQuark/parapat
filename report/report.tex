@@ -53,7 +53,7 @@
 %----------------------------------------------------------------------------------------
 
 \textsc{\LARGE University of St Andrews}\\[1.5cm] % Name of your university/college
-\textsc{\Large CS4204 Coursework 1}\\[0.5cm] % Major heading such as course name
+\textsc{\Large CS4204 Coursework 2}\\[0.5cm] % Major heading such as course name
 \textsc{\large }\\[0.5cm] % Minor heading such as course title
 
 %----------------------------------------------------------------------------------------
@@ -148,9 +148,19 @@ If inputs were to be processed in parallel, then there are many situations where
 	\label{fig:batch}
 \end{figure}
 
-When a filter step receives a NULL output, it increments the batch counter by obtaining the batch lock and incrementing the completed count. Since tasks could be completed on multiple threads, this increment had to be performed in a thread safe manner.
+When a filter step receives a NULL output, it informs its batch that it is completed. Since tasks could be completed on multiple threads, this increment had to be performed in a thread safe manner. Initially compare and swap was used, as experiments from the previous practical had proven that this would perform better in a multithreaded environment (i.e. less wait times). CAS was replaced with a mutex as it was necessary to notify any consumers of the pipeline that a batch was completed and the results were ready to extract. 
 
-Once satisifed with the single worker per step implementation, the ability to have multiple worker threads per step was then implemented. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as simple parallel farms. It was noted that since each thread would share the same input queue, increasing the number of worker threads would increase the level of contention when trying to dequeue and enqueue tasks due to the blocking queues locking mechansim. 
+In order to differentiate between completion due to being filtered and actual completion, a filtered flag was passed to the completed count incrementing function which if false would also increment the number of outputs. Steps would also know if they were the final step, and would also mark unfiltered tasks completed if they were final. 
+
+Tracking the actual number of ouputs allowed for the consumer of the pipeline to allocate only the memory they needed rather than allocating a buffer the same size as the inputs. The results were returned as a \code{Result} struct, which contained the number of results, and a pointer to an array of the results.
+
+After incrementing the number of completed tasks, if the batch was completed then the number of outputs would be calculated using the number tasks marked as filtered, and any threads waiting on batch completion would be notified using the conditional variable.
+
+\section{Parallel Farm}
+
+The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved in creating threads for each new input. 
+
+Since the \code{Step} struct already contained a single worker thread, it was simple to extend this to allow for a variable number of worker threads. Figure \ref{fig:multiplestep} shows a step that has three worker threads each applying a function to inputs from the same queue and placing the return values in the same queue. This allowed steps to operate as parallel farms. It was noted that since each thread would share the same input queue, increasing the number of worker threads would increase the level of contention when trying to dequeue and enqueue tasks due to the blocking queues locking mechansim. \cite{casqueue} provide a compare-and-swap queue implementation that could be used to reduce wait times when dequeing and enqueing to the input and output queues.
 
 \begin{figure}[!ht]
 	\centering 
@@ -166,8 +176,7 @@ Once satisifed with the single worker per step implementation, the ability to ha
 	\label{fig:stepstruc}
 \end{figure}
 
-
-The step implementation and filter functionality was tested by iteratively building steps with a variable number of worker threads and a variable number of inputs and checking that the correct outputs were received. The normal step test would multiple each input by two, and the filter test would remove even numbers from the input. Use \code{make steptest} then \code{./steptest} to compile and run the test. The output from an example test run is shown in figure \ref{fig:steptest}. The tests were also run with valgrind to check that no memory leaks were occurring (figure \ref{fig:stepgrind}).
+The parallel farm implementation and filter functionality was tested by iteratively building steps with a variable number of worker threads and a variable number of inputs and checking that the correct outputs were received. The normal step test would multiply each input by two, and the filter test would remove even numbers from the input. Use \code{make steptest} then \code{./steptest} to compile and run the test. The output from an example test run is shown in figure \ref{fig:steptest}. The tests were also run with valgrind to check that no memory leaks were occurring (figure \ref{fig:stepgrind}).
 
 \begin{figure}[!ht]
 	\centering 
@@ -187,7 +196,7 @@ The step implementation and filter functionality was tested by iteratively build
 
 The pipeline pattern is where a series of functions are applied to some input in a given order. Often the analogy of a conveyor belt is used, as inputs can flow continuously and functions can be applied simultaneously to inputs that are at different stages in the pipeline.
 
-Figure \ref{fig:pipe} shows how a pipeline was implemented for this submission. An array of functions are submitted on creation of the pipeline, along with the number of worker threads that should run for each stage in the pipeline. The pipeline interface allows for inputs to be added to a queue, where they will wait to be processed, and for outputs to be polled from the outgoing queue. 
+Figure \ref{fig:pipe} shows how a pipeline was implemented for this submission. An array of functions are submitted on creation of the pipeline. The pipeline interface allows for inputs to be added to a queue, where they will wait to be processed, and for outputs to be polled from the outgoing queue. 
 
 \begin{figure}[!ht]
 	\centering 
@@ -211,6 +220,21 @@ I opted for the size of the input queue at each step to be equal to the number o
 	\label{fig:qsize}
 \end{figure}
 
+The pipeline allowed for data to be submitted in batches, and would return each batch in the order it was submitted. Consumers of the pipeline API could request for the next batch, which would block until it was available by using the \code{Batch} conditional variable mentioned earlier.
+
+\section{Nested Parallel Patterns}
+
+Since parallel farms were implemented as steps with multiple worker threads and pipelines were constructed using steps, it was simple to nest parallel farms within the pipelines. On creation of the pipeline, users submit the array of functions to apply, and an array that would define how many threads should be used at each step. This allowed for pipelines to be constructed like that in figure \ref{fig:nested}.
+
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=0.8\linewidth]{images/nested}
+	\caption{Pipeline with nested parallel farm at step one.}
+	\label{fig:nested}
+\end{figure}
+
+Tests were again written to ensure that these nested structures worked correctly by increasing the number of worker threads, number of inputs, and number of batches submitted to the pipeline, using the same functions that were used to test the parallel farms. \code{make pipetest;./pipetest} compiles and executes these tests. Figure \ref{fig:pipetest} shows the output of \code{pipetest} when run using valgrind.
+
 \begin{figure}[!ht]
 	\centering 
 	\includegraphics[width=0.8\linewidth]{images/pipetest}
@@ -218,21 +242,18 @@ I opted for the size of the input queue at each step to be equal to the number o
 	\label{fig:pipetest}
 \end{figure}
 
-\section{Parallel Farm}
+\section{Experiment}
 
-The parallel farm pattern involves a pool of worker threads that remain idle until assigned a task by a coordinator. Once a worker thread completes its task, it then returns to being idle until a new task is assigned. Parallel farms are useful as they avoid the overhead involved in creating threads. 
-
-As mentioned earlier, \code{Step}s already provided a method of having multiple worker threads processing from the same input queue, and the pipeline API already contained a way of constructing steps and submitting tasks. Therefore the farm API simply wrapped a pipeline instance with a single step and multiple worker threads.
-
-\section{Evaluation}
-
+\subsection{Method}
 The provided convolution program was going to be used for evaluation as it was clearly appropriate to use a pipeline when processing the images iteratively. Unfortunately I was unable to get the C library to compile with \code{gpp}.
 
-Instead, computation was simulated by varying sleep times for each function. Three phases of the geometry phase in a graphics pipeline were used in order to test the effectiveness of the implementation and compare it to a serial computation: clipping, transformation, and rasterisation. The first step removes object outside of the visual volume from being processed later, the second involves scaling the content to the given viewport, and the last produces pixel information for each point in the resulting image. 
+Instead, computation was simulated by varying sleep times for each function. Three phases of the geometry phase in a graphics pipeline were used in order to test the effectiveness of the implementation and compare it to a serial computation: clipping, transformation, and rasterisation. The first step removes objects outside of the visual volume from being processed later, the second involves scaling the content to the given viewport, and the last produces pixel data for each point in the resulting image. 
 
-Transformation was assumed to take the shortest time since it is a simple vector multiplication, clipping the next longest, then finally rasterisation taking the longest. The processing time ratio adopted was 2:1:3. Each task was assumed to be able to be parallelised. 
+Transformation was assumed to take the shortest time since it is a simple vector multiplication, clipping the next longest, then finally rasterisation. The processing time ratio adopted was 2:1:3. Each task was assumed to be able to be parallelised. 
 
-The first evaluation test is based on the experiments in \cite{grppi} which used different pipeline compositions as shown in figure \ref{fig:grppi}. GRPPI was also used as an inspiration for the API design of this submission, so it seemed appropriate to evaulate it using a similiar experiment. Three stages were used, which would each either have 1 or 3 worker threads, written as \code{p} if 1 and \code{f} if 3. Using the ratio discussed earlier, the relative processing delays were scaled up by factors of 10 from $1ns$ to $10000000ns$. The configurations are summarised in table \ref{tbl:exp1}. For each configuration in each row of the table, the computation was also performed single threaded for comparison. The initialisation and teardown times were included in the pipeline execution times, which was expected to result in a cutoff point where the multithreaded pipeline became more efficient.
+The evaluation test is based on the experiments in \cite{grppi} which used different pipeline compositions as shown in figure \ref{fig:grppi}. GRPPI was also used as an inspiration for the API design of this submission, so it seemed appropriate to evaulate it using a similiar experiment. Three stages were used, which would each either have 1 or 3 worker threads, written as \code{p} (pipe) if 1 and \code{f} (farm) if 3. Using the ratio discussed earlier, the relative processing delays were scaled up by factors of 10 from $1\mu s$ to $1000 \mu s$. The configurations are summarised in table \ref{tbl:exp1}. For each configuration in each row of the table, the computation was also performed single threaded for comparison. The initialisation and teardown times were included in the pipeline execution times, which was expected to result in a cutoff point where the multithreaded pipeline became more efficient. 
+
+Larger data sets would have been used, but due to time constraints this was not possible. Input sizes greater than 100 began causing a considerable slowdown for both the linear and pipeline tests.
 
 \begin{figure}[!ht]
 	\centering 
@@ -241,20 +262,15 @@ The first evaluation test is based on the experiments in \cite{grppi} which used
 	\label{fig:grppi}
 \end{figure}
 
-
 \begin{table}[]
 \centering
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{@{}ccc|lll|l@{}}
 \toprule
-\multicolumn{3}{c|}{\textbf{Steps}}                 & \multicolumn{3}{c|}{\textbf{Delay (ns)}}                                                                         & \multicolumn{1}{c}{\multirow{2}{*}{Number of Inputs per Batch}} \\
+\multicolumn{3}{c|}{\textbf{Steps}}                 & \multicolumn{3}{c|}{\textbf{Delay (micro seconds)}}                                                                         & \multicolumn{1}{c}{\multirow{2}{*}{Number of Inputs per Batch}} \\
 \textit{Step 1} & \textit{Step 2} & \textit{Step 3} & \multicolumn{1}{c}{\textit{Step 1}} & \multicolumn{1}{c}{\textit{Step 2}} & \multicolumn{1}{c|}{\textit{Step 3}} & \multicolumn{1}{c}{}                                            \\ \midrule
 P               & P               & P               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\
 P               & P               & F               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\
-P               & F               & P               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\
-P               & F               & F               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\
-F               & P               & P               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\
-F               & P               & F               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\
 F               & F               & P               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\
 F               & F               & F               & 2,20,...2000                        & 1,10,...1000                        & 3,30, ... 3000                       & 1, 10, 100                                                      \\ \bottomrule
 \end{tabular}%
@@ -262,12 +278,47 @@ F               & F               & F               & 2,20,...2000              
 \caption{Configurations for experiment.}
 \label{tbl:exp1}
 \end{table}
+\FloatBarrier
 
+\noindent The expected results in order of lowest execution time were expected to be:
+\begin{enumerate}
+	\item F|F|F
+	\item P|P|F
+	\item P|P|P and F|F|P
+	\item Serial
+\end{enumerate}
 
+Since the fully parallelised approach would have no bottlenecks, it was expected to be the quickest as the number of inputs grew. The final step took the longest, therefore it was then expected that having only that step parallelised would perform similiarly to being fully parallel. P|P|P and F|F|P were expected to perform equally well due to sharing the bottleneck of the final step. 
 
+\subsection{Results}
 
+Figure \ref{fig:results} shows the execution times of the different pipeline configurations and the serial implementation when the lowest delay was set to $1ns$. This was the configuration used in the first experiment, which showed that nanoseconds was far too small a delay. Figure \ref{fig:results2} shows the same but with the lowest delay set to $1\mu$s and the number of inputs extended.
 
-\section*{Conclusion}
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=\linewidth]{images/results}
+	\caption{Execution times when base delay is $1\mu s$.}
+	\label{fig:results}
+\end{figure}
+
+\begin{figure}[!ht]
+	\centering 
+	\includegraphics[width=\linewidth]{images/results}
+	\caption{Execution times when base delay is $1\mu s$.}
+	\label{fig:results2}
+\end{figure}
+
+\section{Evaluation}
+
+The fully parallel pipeline (F|F|F) performed better than the serial approach by far. 
+
+% TODO ALL THATS LEFT YASS
+
+\section{Conclusion}
+ 
+The implementation provides an API for building parallel farms, pipelines, and pipelines with nested parallel farms. The ability to filter inputs is also implemented in a generic way, as well as preservation of ordering in outputs. Tests are provided to prove safety and completeness of components, which are each organised and encapsulated in an attempt to apply OOD in C.
+
+The practical greatly improved my understanding of multithreading in C and parallel design patterns, and also made me aware of the variety of APIs that provide a way to integrate these patterns into existing systems. Given more time, I would have like to reduce the memory footprint and the large number of system calls used in the implementation, which were likely the main contributor to the execution time of tests. 
 
 \bibliographystyle{unsrt}
 \bibliography{mybib}

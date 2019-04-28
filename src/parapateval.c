@@ -19,6 +19,7 @@ typedef struct Bar {
     int value;
 } Bar;
 
+int MAX_ITEMS = 1000;
 Foo ALL_FOOS[3][1000];
 Bar ALL_BARS[3][1000];
 
@@ -114,8 +115,8 @@ void timeLinear(struct timespec* sleepTimes, int numBatches, int numInputsInBatc
 
 int numSteps = 3;
 void* (*functionSteps[3])();
+bool filterSteps[3] = {true, false, false};
 
-    bool filterSteps[3] = {true, false, false};
 // numWorkers[i]    = number of threads at step i
 // sleepTimes[i]    = how long should step i take (nanosecs)
 // numBatches       = number of batches to insert
@@ -193,19 +194,19 @@ void timePipe(int numWorkers[], struct timespec* sleepTimes, int numBatches, int
 void testWithWorkers(int numWorkers[3]) {
     struct timespec sleepTimes[3];
     sleepTimes[0].tv_sec = 0;
-    sleepTimes[0].tv_nsec = 2;
+    sleepTimes[0].tv_nsec = 2000;
     sleepTimes[1].tv_sec = 0;
-    sleepTimes[1].tv_nsec = 1;
+    sleepTimes[1].tv_nsec = 1000;
     sleepTimes[2].tv_sec = 0;
-    sleepTimes[2].tv_nsec = 3;
+    sleepTimes[2].tv_nsec = 3000;
 
     int sleepScaler = 10;
-    while (sleepTimes[1].tv_nsec < 1000) {
+    while (sleepTimes[1].tv_nsec < 1000000) {
         // Multiple sleep time by 10
         sleepTimes[0].tv_nsec *= sleepScaler;
         sleepTimes[1].tv_nsec *= sleepScaler;
         sleepTimes[2].tv_nsec *= sleepScaler;
-        for(int numItemsPerBatch = 1; numItemsPerBatch <= 100; numItemsPerBatch*=10) {
+        for(int numItemsPerBatch = 1; numItemsPerBatch <= MAX_ITEMS; numItemsPerBatch*=10) {
             timePipe(numWorkers, sleepTimes, 1, numItemsPerBatch);
         }
     }
@@ -214,20 +215,20 @@ void testWithWorkers(int numWorkers[3]) {
 void testLinear() {
     struct timespec sleepTimes[3];
     sleepTimes[0].tv_sec = 0;
-    sleepTimes[0].tv_nsec = 2;
+    sleepTimes[0].tv_nsec = 2000;
     sleepTimes[1].tv_sec = 0;
-    sleepTimes[1].tv_nsec = 1;
+    sleepTimes[1].tv_nsec = 1000;
     sleepTimes[2].tv_sec = 0;
-    sleepTimes[2].tv_nsec = 3;
+    sleepTimes[2].tv_nsec = 3000;
 
     int sleepScaler = 10;
-    while (sleepTimes[1].tv_nsec < 1000) {
+    while (sleepTimes[1].tv_nsec < 1000000) {
         // Multiple sleep time by 10
         sleepTimes[0].tv_nsec *= sleepScaler;
         sleepTimes[1].tv_nsec *= sleepScaler;
         sleepTimes[2].tv_nsec *= sleepScaler;
         // For each number of batches
-        for(int numItemsPerBatch = 1; numItemsPerBatch <= 100; numItemsPerBatch*=10) {
+        for(int numItemsPerBatch = 1; numItemsPerBatch <= MAX_ITEMS; numItemsPerBatch*=10) {
             timeLinear(sleepTimes, 1, numItemsPerBatch);
         }
     }
@@ -243,52 +244,27 @@ int main() {
     functionSteps[1] = (void*) timesFooByTwo;
     functionSteps[2] = (void*) mapFooToBar;
 
-    // First step P
-    numWorkers[0] = p;
-    // Second step P
-    numWorkers[1] = p;
-    for(int i = 0; i < 2; i++) {
-        // third step p
-        numWorkers[2] = p;
-        testWithWorkers(numWorkers);
-        // third step f
-        numWorkers[2] = f;
-        testWithWorkers(numWorkers);
-    }
-    numWorkers[1] = f;
-    for(int i = 0; i < 2; i++) {
-        // third step p
-        numWorkers[2] = p;
-        testWithWorkers(numWorkers);
-        // third step f
-        numWorkers[2] = f;
-        testWithWorkers(numWorkers);
-    }
-
-    // First step F
     numWorkers[0] = f;
-    // Second step P
-    numWorkers[1] = p;
-    for(int i = 0; i < 2; i++) {
-        // third step p
-        numWorkers[2] = p;
-        testWithWorkers(numWorkers);
-        // third step f
-        numWorkers[2] = f;
-        testWithWorkers(numWorkers);
-    }
     numWorkers[1] = f;
-    for(int i = 0; i < 2; i++) {
-        // third step p
-        numWorkers[2] = p;
-        testWithWorkers(numWorkers);
-        // third step f
-        numWorkers[2] = f;
-        testWithWorkers(numWorkers);
-    }
+    numWorkers[2] = f;
+    testWithWorkers(numWorkers);
+
+    numWorkers[0] = f;
+    numWorkers[1] = f;
+    numWorkers[2] = p;
+    testWithWorkers(numWorkers);
+
+    numWorkers[0] = p;
+    numWorkers[1] = p;
+    numWorkers[2] = p;
+    testWithWorkers(numWorkers);
+
+    numWorkers[0] = p;
+    numWorkers[1] = p;
+    numWorkers[2] = f;
+    testWithWorkers(numWorkers);
 
     testLinear();
-
 
     return 0;
 }
