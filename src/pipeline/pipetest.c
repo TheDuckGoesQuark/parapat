@@ -39,7 +39,9 @@ Foo* timesFooByTwo(Foo* foo) {
 }
 
 Foo* filterEvenFoos(Foo* foo) {
-    if (foo->value % 2 == 0) return NULL;
+    if (foo->value % 2 == 0) {
+        return NULL;
+    }
     else return foo;
 }
 
@@ -52,9 +54,7 @@ Bar* mapFooToBar(Foo* foo) {
 // Run test using step with
 // number of worker threads
 // number of inputs
-// Retrieve outputs before or after signalling for step to terminate
 int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char message[]) {
-
     int numSteps = 3;
     void* (*functionSteps[numSteps])();
     functionSteps[0] = (void*) filterEvenFoos;
@@ -67,20 +67,20 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
 
     // Create test case buffers
     Foo* inputs[numBatches][numInputsInBatch];
-    Bar* expectedOutputs[numBatches][numInputsInBatch];
 
     // Create test cases
+    Bar* expectedOutputs[numBatches][numInputsInBatch];
     for(int i = 0; i < numBatches; ++i) {
+        int outputIndex = 0;
         for (int j = 0; j < numInputsInBatch; j++) {
-            int inputValue = ((i + 1) * j);
+            int inputValue = ((i + 1) * (j + 1));
             inputs[i][j] = createFoo(inputValue);
 
-            // even inputs are filtered at first step
-            if (inputValue % 2 == 0) {
-                expectedOutputs[i][j] = NULL;
-            } else {
+            // even inputs are filtered at first step, so only include outputs
+            if (inputValue % 2 != 0) {
                 // Odd inputs are multiplied by two and mapped to a Bar
-                expectedOutputs[i][j] = createBar(inputValue * 2);
+                expectedOutputs[i][outputIndex] = createBar(inputValue * 2);
+                outputIndex++;
             }
         }
     }
@@ -92,22 +92,28 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
 
     // Retrieve outputs
     Bar* outputs[numBatches];
+    int outputsPerBatch[numBatches];
     for(int i = 0; i < numBatches; ++i) {
-        outputs[i] = *((Bar**) getNextBatchOutput(pipeline));
+        Result* batchOutput = getNextBatchOutput(pipeline);
+        // Get address of outputs from result set
+        void** results = batchOutput->results;
+        Bar* bar = results[i];
+
+        outputs[i] = *((Bar**) (batchOutput->results));
+        outputsPerBatch[i] = batchOutput->numResults;
+        // Destroy result struct
+        destroyResult(batchOutput);
     }
 
     // Validate results
     int failed = 0;
     for(int i = 0; i < numBatches; ++i) {
-        for (int j = 0; j < numInputsInBatch; j++) {
+        for (int j = 0; j < outputsPerBatch[i]; j++) {
             int output = outputs[i][j].value;
-            printf("hell\n");
             int expected = expectedOutputs[i][j]->value;
-            printf("hell\n");
+
             if (output != expected) {
                 printf("FAIL: EXPECTED = %d ACTUAL = %d\n", expected, output);
-            } else {
-                printf("hell\n");
                 failed++;
             }
         }
@@ -121,6 +127,7 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
     }
 
     // Cleanup
+    printf("hello\n");
     destroyPipeline(pipeline);
     for(int i = 0; i < numBatches; ++i) {
         for (int j = 0; j < numInputsInBatch; j++) {

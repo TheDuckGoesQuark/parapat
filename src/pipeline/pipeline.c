@@ -3,6 +3,7 @@
 #include "../queue/queue.h"
 #include "../step/step.h"
 #include "../task/task.h"
+#include "pipeline.h"
 
 typedef struct Pipeline {
     Queue** queues; // All queues in pipeline
@@ -123,15 +124,11 @@ void addBatch(Pipeline* pipeline, void* data[], int numberOfInputs) {
 }
 
 // Free batch structures and return output
-void** recordAndReturnResults(Pipeline* pipeline, Batch* currentBatch) {
+Result* recordAndReturnResults(Pipeline* pipeline, Batch* currentBatch) {
     // Create buffer to place output of batches
-    int numberOfOutputs = getBatchSize(currentBatch);
-    void** outputBuffer = malloc(sizeof(void*) * numberOfOutputs);
-
-    // Provide pointer to outputs
-    for (int i = 0; i < numberOfOutputs; i++) {
-        outputBuffer[i] = getTaskData(getTask(currentBatch, i));
-    }
+    Result* results = malloc(sizeof(Result));
+    results->numResults = getNumberOfResults(currentBatch);
+    results->results = getResultPointerArray(currentBatch);
 
     // Destroy currentBatch
     destroyBatch(currentBatch);
@@ -140,19 +137,28 @@ void** recordAndReturnResults(Pipeline* pipeline, Batch* currentBatch) {
     // Update next batch index
     pipeline->currentBatch++;
 
-    return outputBuffer;
+    return results;
 }
 
 // Blocks until next batch is returned.
 // Batches will be returned in the order they are submitted
 // If no batches, returns null
-void** getNextBatchOutput(Pipeline* pipeline) {
+Result* getNextBatchOutput(Pipeline* pipeline) {
     // Check if there are any batches to get
     if (pipeline->currentBatch == pipeline->numBatches) return NULL;
 
     Batch* currentBatch = pipeline->batches[pipeline->currentBatch];
     waitForBatchToComplete(currentBatch);
 
-    printf("D\n");
     return recordAndReturnResults(pipeline, currentBatch);
+}
+
+// Destroys the result struct returned by the pipeline and the pointer array to the outputs
+void destroyResult(Result* result) {
+    if (!result) return;
+
+    if (result->results)
+        free(result->results);
+
+    free(result);
 }

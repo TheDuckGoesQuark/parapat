@@ -29,8 +29,17 @@ Task* getTask(Batch* batch, int taskIndex);
 int getBatchSize(Batch* batch);
 
 // Increments the number of tasks that are completed for the batch this task belonged to
-void recordCompletedTask(Task* task);
+// Notes if task was filtered in pipeline or actually completed
+void recordCompletedTask(Task* task, bool filtered);
 
+// Creates a pointer array to each output from this batch
+// Number of results need to be known if consumer wants
+// to iterate
+void** getResultPointerArray(Batch* batch);
+
+// Gets the number of results from the batch
+// Meaningless if called before completion
+int getNumberOfResults(Batch* batch);
 
 // FOR STEP TEST ****
 

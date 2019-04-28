@@ -30,18 +30,18 @@ void* runStep(Step* step) {
             void* output= step->functionToApply(input);
 
             // Only forward nulls if specified to do so
+            setTaskData(task, output);
             if (output != NULL || (step->filterNulls != true)) {
                 // adds it to the output queue.
-                setTaskData(task, output);
                 if (step->final) {
                     // Notify batch listeners that task is completed
-                    recordCompletedTask(task);
+                    recordCompletedTask(task, false);
                 } else {
                     // Pass on to next step
                     enqueue(step->outputQueue, task);
                 }
             } else {
-                recordCompletedTask(task);
+                recordCompletedTask(task, true);
             }
         }
 

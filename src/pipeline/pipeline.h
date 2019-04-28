@@ -2,6 +2,11 @@
 
 typedef struct Pipeline Pipeline;
 
+typedef struct Result {
+    void** results; // address of pointer array, each pointing to an output
+    int numResults; // number of outputs pointed to
+} Result;
+
 // Create pipeline consisting of steps given in array.
 // Steps will occur in order functions are given
 // workerThreadPerStep assigns workerThreadAtStep[i] worker threads to functionSteps[i]
@@ -22,4 +27,7 @@ void addBatch(Pipeline* pipeline, void* data[], int numberOfInputs);
 // Blocks until next batch is returned.
 // Batches will be returned in the order they are submitted
 // If no batches, returns null
-void** getNextBatchOutput(Pipeline* pipeline);
+Result* getNextBatchOutput(Pipeline* pipeline);
+
+// Destroys the result struct returned by the pipeline and the pointer array to the outputs
+void destroyResult(Result* result);
