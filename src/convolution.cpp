@@ -13,6 +13,7 @@
 #include <string>
 #include <fstream>
 #include <sys/time.h>
+#include "parapat.h"
 
 int dim, nr_cpu_w, nr_gpu_w;
 const int mask_dim=8;

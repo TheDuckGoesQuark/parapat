@@ -6,3 +6,4 @@ report/*.log
 report/*.syntex.gz
 report/*.fdb_latexmk
 report/*.fls
+src/images
