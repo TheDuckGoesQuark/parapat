@@ -51,6 +51,13 @@ Bar* mapFooToBar(Foo* foo) {
     return bar;
 }
 
+// Add sleep to functions to replicate them taking time
+// Compare effect of varying workers at each step on total run time on increasing numbers of inputs
+// i.e. 1,1,1 - 2,2,2 - 1,2,1 - 2,1,2, and normal linear.
+// At what point does it become better to use the pipeline?
+// bar chart of delay time for each approach
+// Scatter plot of delay with increasing inputs for each approach
+
 // Run test using step with
 // number of worker threads
 // number of inputs
