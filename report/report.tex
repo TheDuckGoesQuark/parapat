@@ -94,6 +94,8 @@
 
 To implement and evaluate a library for parallelising C programs, using PThreads, locks, and queues. 
 
+\tableofcontents
+
 \section{Blocking Queue}
 
 The implementation of parallel task handlers would have to accumulate their outputs and buffer their inputs in a thread safe way, and so a blocking queue was necessary. \code{queue.h} provides an interface for a queue to be used by other components, and \code{queue.c} provides an implementation.
@@ -303,18 +305,16 @@ Figure \ref{fig:results} shows the execution times of the different pipeline con
 
 \begin{figure}[!ht]
 	\centering 
-	\includegraphics[width=\linewidth]{images/results}
-	\caption{Execution times when base delay is $1\mu s$.}
+	\includegraphics[width=\linewidth]{images/results1}
+	\caption{Execution times when base delay is $1ms$.}
 	\label{fig:results2}
 \end{figure}
 
 \section{Evaluation}
 
-The fully parallel pipeline (F|F|F) performed better than the serial approach by far. 
+The fully parallel pipeline (F|F|F) performed better than the serial approach by far as expected. Strangely, the F|F|P pipeline performed equally as well as the F|F|F pipeline. The other pipeline arrangements both performed the same as the serial approach was which was also not expected.
 
-% TODO ALL THATS LEFT YASS
-
-\section{Conclusion}
+\section{Conclusion} 
  
 The implementation provides an API for building parallel farms, pipelines, and pipelines with nested parallel farms. The ability to filter inputs is also implemented in a generic way, as well as preservation of ordering in outputs. Tests are provided to prove safety and completeness of components, which are each organised and encapsulated in an attempt to apply OOD in C.
 
