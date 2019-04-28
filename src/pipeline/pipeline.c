@@ -94,6 +94,9 @@ int destroyPipeline(Pipeline* pipeline) {
     }
     free(pipeline->queues);
 
+    if (pipeline->batches)
+        free(pipeline->batches);
+
     // Free pipeline
     free(pipeline);
     return 0;
