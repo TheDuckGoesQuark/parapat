@@ -69,7 +69,7 @@ void destroyBatch(Batch* batch) {
 }
 
 bool batchCompleted(Batch* batch) {
-    return batch->nCompleted == batch->nTasks;
+    return batch == NULL || batch->nCompleted == batch->nTasks;
 }
 
 // Returns true if all tasks in this batch are completed

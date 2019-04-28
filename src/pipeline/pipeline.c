@@ -64,9 +64,9 @@ Pipeline* createPipeline(void* (*functionSteps[])(), int numSteps, int workerThr
 // Checks if any batches in the pipeline are still being processed
 bool stillProcessing(Pipeline* pipeline) {
     for (int i = 0; i < pipeline->numBatches; i++) {
-        if (!batchCompleted(pipeline->batches[i])) return false;
+        if (!batchCompleted(pipeline->batches[i])) return true;
     }
-    return true;
+    return false;
 }
 
 // Frees all data allocated to the pipeline if pipeline has finished processing all inputs

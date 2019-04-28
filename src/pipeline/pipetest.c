@@ -91,16 +91,18 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
     }
 
     // Retrieve outputs
-    Bar* outputs[numBatches];
+    Bar* outputs[numBatches][numInputsInBatch];
     int outputsPerBatch[numBatches];
     for(int i = 0; i < numBatches; ++i) {
         Result* batchOutput = getNextBatchOutput(pipeline);
-        // Get address of outputs from result set
-        void** results = batchOutput->results;
-        Bar* bar = results[i];
 
-        outputs[i] = *((Bar**) (batchOutput->results));
+        // Get address of outputs from result set
+        Bar** resultPointerArray = (Bar**) batchOutput->results;
         outputsPerBatch[i] = batchOutput->numResults;
+
+        for(int j = 0; j < outputsPerBatch[i]; j++) {
+            outputs[i][j] = (resultPointerArray[j]);
+        }
         // Destroy result struct
         destroyResult(batchOutput);
     }
@@ -109,7 +111,7 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
     int failed = 0;
     for(int i = 0; i < numBatches; ++i) {
         for (int j = 0; j < outputsPerBatch[i]; j++) {
-            int output = outputs[i][j].value;
+            int output = outputs[i][j]->value;
             int expected = expectedOutputs[i][j]->value;
 
             if (output != expected) {
@@ -127,16 +129,18 @@ int testStep(int numWorkers[], int numInputsInBatch, int numBatches, char messag
     }
 
     // Cleanup
-    printf("hello\n");
     destroyPipeline(pipeline);
     for(int i = 0; i < numBatches; ++i) {
         for (int j = 0; j < numInputsInBatch; j++) {
             destroyFoo(inputs[i][j]);
 
-            if (expectedOutputs[i][j])
-                destroyBar(expectedOutputs[i][j]);
+        }
+        for (int j = 0; j < outputsPerBatch[i]; j++) {
+            destroyBar(expectedOutputs[i][j]);
+            destroyBar(outputs[i][j]);
         }
     }
+
 
     // Return 1 on success
     return failed == 0 ? 1 : 0;
@@ -149,9 +153,8 @@ int main() {
 
     for(int numWorkers = 1; numWorkers < 3; ++numWorkers) {
         int numWorkersAtStep[3] = {numWorkers, numWorkers, numWorkers};
-
-        for(int numBatches = 1; numBatches < 2; ++numBatches) {
-            for(int numInputsInBatch = 1; numInputsInBatch < 2; ++numInputsInBatch) {
+        for(int numBatches = 1; numBatches < 3; ++numBatches) {
+            for(int numInputsInBatch = 1; numInputsInBatch < 3; ++numInputsInBatch) {
                 sprintf(test, "[numworkers:%d | numbatches:%d | numinputs:%d]", numWorkers, numBatches, numInputsInBatch);
                 passCount += testStep(numWorkersAtStep, numInputsInBatch, numBatches, test);
                 totalCount += 1;
@@ -159,7 +162,7 @@ int main() {
         }
     }
 
-    printf("*** NORMAL TESTS: %d / %d PASSED ***\n", passCount, totalCount);
+    printf("*** PIPELINE TESTS: %d / %d PASSED ***\n", passCount, totalCount);
     free(test);
     return 0;
 }
