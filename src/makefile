@@ -25,11 +25,14 @@ queue.o: queue/queue.c
 parapat: pipeline.o step.o task.o queue.o
 	ar rcs $@ $^
 
-all: queuetest steptest pipetest parapat cleanobjs
+parapateval: parapateval.c parapat parapat.h
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+all: queuetest steptest pipetest parapat parapateval cleanobjs
 
 .PHONY: clean
 clean:
-	rm -f $(obj) *.o queuetest steptest pipetest parapat
+	rm -f $(obj) *.o queuetest steptest pipetest parapat eval
 
 cleanobjs:
 	rm -f $(obj) *.o
