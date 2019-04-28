@@ -208,6 +208,10 @@ The parallel farm pattern involves a pool of worker threads that remain idle unt
 
 As mentioned earlier, \code{Step}s already provided a method of having multiple worker threads processing from the same input queue, and the pipeline API already contained a way of constructing steps and submitting tasks. Therefore the farm API simply wrapped a pipeline instance with a single step and multiple worker threads.
 
+\section{Evaluation}
+
+The provided convolution program was going to be used for evaluation as it was clearly appropriate to use a pipeline when processing the images iteratively. Unfortunately I was unable to get the C library to compile with \code{gpp}.
+
 \section*{Conclusion}
 
 \bibliographystyle{unsrt}

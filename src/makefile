@@ -29,7 +29,7 @@ all: queuetest steptest pipetest parapat cleanobjs
 
 .PHONY: clean
 clean:
-	rm -f $(obj) *.o queuetest steptest pipetest
+	rm -f $(obj) *.o queuetest steptest pipetest parapat
 
 cleanobjs:
 	rm -f $(obj) *.o
